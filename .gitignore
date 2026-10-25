@@ -5,3 +5,8 @@ tools/zig-local/
 firmware/app/build/
 __pycache__/
 preview/anim-*.png
+web-preview/
+web-bundle/
+_site/
+downloaded/
+test-output/

@@ -1,0 +1,25 @@
+// Tests package identity, SHA-256 and the browser installer's no-file state.
+import assert from 'node:assert/strict';
+import { webcrypto } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { verifyPackage } from '../site/verify.js';
+import { pack7, unpack7 } from '../site/lib/fm1ota.js';
+globalThis.crypto ??= webcrypto;
+const raw=new Uint8Array(1200);
+const product='FM-1_9062500';
+for(let i=0;i<20;i++)raw[i*48+47]=i<product.length?(product.charCodeAt(i)+i+1)&255:125;
+const meta={product,bytes:raw.length,sha256:Buffer.from(await crypto.subtle.digest('SHA-256',raw)).toString('hex')};
+assert.equal((await verifyPackage(raw,meta)).length,1180);
+const changed=raw.slice();changed[100]^=1;
+await assert.rejects(verifyPackage(changed,meta),/SHA-256/);
+await assert.rejects(verifyPackage(raw.slice(1),meta),/Размер/);
+await assert.rejects(verifyPackage(raw,{...meta,product:'FM-1_015'}),/метаданные/);
+await assert.rejects(verifyPackage(raw,{...meta,product:'FM-1_9062501'}),/идентификатор/);
+const bytes=Array.from({length:512},(_,i)=>i%256);
+assert.deepEqual(unpack7(pack7(bytes)),bytes);
+const manifest=JSON.parse(readFileSync(new URL('../site/firmware.json',import.meta.url),'utf8'));
+assert.equal(manifest.schema,1);assert.deepEqual(manifest.builds,[]);
+const html=readFileSync(new URL('../site/index.html',import.meta.url),'utf8');
+assert.match(html,/id="install" disabled/);
+assert.match(html,/id="ack" type="checkbox"/);
+console.log('Installer checks passed: valid package, corruption, size, family, identity, MIDI encoding, no-release gate.');

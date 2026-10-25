@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#090c19">
+  <meta name="description" content="NOCT FM: пиксельная MIDI-прошивка для M-VAVE FM-1. Установка по USB прямо из браузера.">
+  <title>NOCT FM — USB installer</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div class="stars" aria-hidden="true"></div>
+  <header><a class="brand" href="./">NOCT<span>FM</span></a><span class="eyebrow">AFTER HOURS / IN CONTROL</span><a href="https://github.com/Joolo09/noct-fm">GitHub ↗</a></header>
+  <main>
+    <section class="intro">
+      <div><p class="eyebrow accent">M-VAVE FM-1 / CUSTOM FIRMWARE</p><h1>Твоя музыка.<br>Ночная смена.</h1><p class="lead">FL Studio и Ableton Live.<br>Пиксельный мир на твоём FM-1.</p><div class="chips"><span>● FL STUDIO</span><span>▥ ABLETON LIVE</span></div><p class="muted">Установка по USB из Chrome или Edge на компьютере.<br>Без отдельной программы-загрузчика.</p></div>
+      <figure><img src="./noct-fm.gif" width="600" height="644" alt="Пиксельный интерфейс NOCT FM: янтарный FL Studio и мятный Ableton Live"><figcaption>240 × 240 / REAL FIRMWARE RENDER</figcaption></figure>
+    </section>
+    <section class="installer" aria-labelledby="install-title">
+      <div class="section-head"><div><p class="eyebrow accent">CONNECT / VERIFY / INSTALL</p><h2 id="install-title">На орбиту — по USB.</h2></div><span class="badge">EXPERIMENTAL ALPHA</span></div>
+      <p class="notice">Сборка ещё не проверена на физическом FM-1. Сохрани свои пресеты и подготовь официальный M-UPGRADE для восстановления. Во время записи не отключай USB. Первая установка заменяет штатную прошивку.</p>
+      <p id="compatibility" class="muted"></p>
+      <div class="steps">
+        <article><span class="number">01</span><h3>Подключи FM-1</h3><p>USB-кабель с передачей данных. Закрой FL Studio, Live и другие приложения, использующие MIDI-порт.</p><button id="connect">Подключить по USB</button><label for="ports" class="small">MIDI-порт</label><select id="ports" disabled><option>Сначала подключи устройство</option></select><p id="device" class="small">Устройство не подключено</p></article>
+        <article><span class="number">02</span><h3>Выбери прошивку</h3><p id="build">Проверяем доступность сборки…</p><button id="load" disabled>Загрузить сборку</button><label for="file" class="small">Или выбери скачанный файл этой сборки</label><input id="file" type="file" accept=".fwsc" disabled><p id="package" class="small">Файл пока не выбран</p></article>
+        <article><span class="number">03</span><h3>Установи NOCT</h3><p>Проверим SHA-256, модель устройства и идентификатор прошивки. Затем загрузчик запишет образ по USB MIDI.</p><label class="ack"><input id="ack" type="checkbox"> Я сохранил данные и понимаю, что это экспериментальная прошивка.</label><button id="install" disabled>Установить NOCT FM</button></article>
+      </div>
+      <div class="status-panel"><div class="status-line"><p id="status" role="status" aria-live="polite">Готов к подключению.</p><span id="percent">0%</span></div><progress id="progress" max="100" value="0" aria-label="Ход установки"></progress><p id="error" role="alert"></p><details><summary>Журнал установки</summary><pre id="log">NOCT FM installer ready.</pre><button id="save-log" class="secondary">Скачать журнал</button></details></div>
+    </section>
+    <section class="after"><div><p class="eyebrow accent">AFTER INSTALL</p><h2>Теперь открой свою DAW.</h2><p>PRESETS на главном экране выбирает FL Studio или Ableton. Установи соответствующий скрипт, чтобы ручки управляли параметрами, а экран получал обратную связь.</p><a class="text-link" href="https://github.com/Joolo09/noct-fm#подключение-daw">Подключение FL Studio и Ableton ↗</a></div><div><h3>Нужно вернуться назад?</h3><p>Используй официальный M-UPGRADE и инструкцию восстановления для своей версии FM-1. Этот установщик принимает только сборку NOCT из своего манифеста.</p><a class="text-link" href="https://www.m-vave.com/product?id=fm-1" target="_blank" rel="noopener">Загрузки M-VAVE ↗</a></div></section>
+  </main>
+  <footer><span>NOCT FM / MADE FOR THE AFTER HOURS</span><span>На базе CTL-1, fm1-base и felucca-bsp · <a href="./LICENSE">MPL-2.0</a></span></footer>
+  <script type="module" src="./installer.js"></script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+name: Deploy NOCT installer
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [Build NOCT firmware]
+    types: [completed]
+    branches: [main]
+  push:
+    branches: [main]
+    paths: ['site/**', 'tools/prepare-site.py', '.github/workflows/pages.yml']
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test installer and prepare static files
+        run: |
+          node tests/installer.test.mjs
+          python tools/prepare-site.py --output _site
+      - name: Include latest successful firmware build when available
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          run=$(gh run list --workflow firmware.yml --branch main --status success --json databaseId --jq '.[0].databaseId // empty')
+          if [ -n "$run" ]; then
+            gh run download "$run" --name noct-usb-alpha --dir downloaded
+            file=$(find downloaded -name '*.fwsc' -print -quit)
+            test -n "$file"
+            python tools/prepare-site.py --firmware "$file" --output _site
+          fi
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - uses: actions/deploy-pages@v4
+        id: deploy
