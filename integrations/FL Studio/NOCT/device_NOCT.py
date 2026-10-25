@@ -51,7 +51,7 @@ def OnMidiMsg(event):
         return
     cc, value = event.data1, event.data2
     if cc == 119:
-        _active = value == 0
+        _active = value in (0, 2)  # 2: one MIDI preset for both DAWs
         _sent.clear()
         event.handled = True
         _feedback()

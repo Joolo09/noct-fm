@@ -61,6 +61,12 @@ class FLTests(unittest.TestCase):
         for cc in range(24, 36):
             self.assertFalse(self.event(cc, 50).handled)
 
+    def test_unified_profile(self):
+        self.event(119,2)
+        self.assertTrue(self.event(20,127).handled)
+        self.event(110,127)
+        self.assertIn('play',self.calls)
+
     def test_profile_gating_and_feedback_cache(self):
         self.script.OnInit()
         self.assertTrue(self.sent)
@@ -115,7 +121,7 @@ class LiveTests(unittest.TestCase):
         self.script = load('integrations/Ableton Live/NOCT/noct.py', 'live_noct_test').Noct(None)
 
     def test_mixer_macro_and_transport(self):
-        for cc in range(40, 52):
+        for cc in range(20, 24):
             self.script._on_cc(cc, 127)
             self.assertEqual(self.script._parameter(cc).value, self.script._parameter(cc).max)
         self.script._on_cc(110, 127)
@@ -129,7 +135,7 @@ class LiveTests(unittest.TestCase):
         track = self.song.view.selected_track
         track.mixer_device.sends = []
         track.view.selected_device = None
-        for cc in range(42, 52):
+        for cc in (22,23):
             self.assertIsNone(self.script._parameter(cc))
             self.script._on_cc(cc, 100)
         self.script._feedback()
@@ -148,10 +154,17 @@ class LiveTests(unittest.TestCase):
         self.script.disconnect()
 
     def test_quantized_parameter(self):
-        p = self.script._parameter(44)
+        p = self.script._parameter(20)
         p.min, p.max, p.is_quantized = 0, 7, True
-        self.script._on_cc(44, 64)
+        self.script._on_cc(20, 64)
         self.assertEqual(p.value, 4)
+
+    def test_unified_profile(self):
+        self.script._on_cc(119,2)
+        self.script._on_cc(20,127)
+        self.assertEqual(self.script._parameter(20).value,1)
+        self.script._on_cc(110,127)
+        self.assertTrue(self.song.is_playing)
 
 
 if __name__ == '__main__':

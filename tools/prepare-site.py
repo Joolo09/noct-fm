@@ -35,7 +35,8 @@ if args.firmware:
     directory.mkdir(exist_ok=True)
     filename='noct-usb-alpha.fwsc'
     (directory/filename).write_bytes(data)
-    manifest={'schema':1,'builds':[{'version':'NOCT FM / USB alpha','product':product,
+    version='NOCT MIDI 0.2.0 / USB' if product=='FM-1_90625000200' else 'NOCT FM / USB alpha'
+    manifest={'schema':1,'builds':[{'version':version,'product':product,
         'sha256':hashlib.sha256(data).hexdigest(),'bytes':len(data),'url':f'./firmware/{filename}'}]}
     (args.output/'firmware.json').write_text(json.dumps(manifest,indent=2)+'\n')
 print(f'Installer ready: {args.output} / firmware: {bool(args.firmware)}')

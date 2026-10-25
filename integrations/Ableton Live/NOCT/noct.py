@@ -15,7 +15,7 @@ class Noct(ControlSurface):
         self._noct_controls = []
         self._noct_callbacks = []
         with self.component_guard():
-            for cc in [7] + list(range(40, 52)) + [110, 111, 112, 119]:
+            for cc in [7, 20, 21, 22, 23, 110, 111, 112, 119]:
                 control = (ButtonElement(True, MIDI_CC_TYPE, 15, cc) if cc >= 110 else
                            EncoderElement(MIDI_CC_TYPE, 15, cc, Live.MidiMap.MapMode.absolute))
                 callback = lambda value, number=cc: self._on_cc(number, value)
@@ -28,24 +28,18 @@ class Noct(ControlSurface):
         track = self.song().view.selected_track
         if cc == 7:
             return self.song().master_track.mixer_device.volume
-        if cc == 40:
+        if cc == 20:
             return track.mixer_device.volume
-        if cc == 41:
+        if cc == 21:
             return track.mixer_device.panning
-        if cc in (42, 43):
+        if cc in (22, 23):
             sends = track.mixer_device.sends
-            return sends[cc - 42] if len(sends) > cc - 42 else None
-        if 44 <= cc <= 51:
-            selected = track.view.selected_device
-            if selected is not None:
-                parameters = selected.parameters
-                index = cc - 43
-                return parameters[index] if len(parameters) > index else None
+            return sends[cc - 22] if len(sends) > cc - 22 else None
         return None
 
     def _on_cc(self, cc, value):
         if cc == 119:
-            self._active = value == 1
+            self._active = value in (1, 2)
             self._sent.clear()
             self._feedback()
             return
@@ -73,7 +67,7 @@ class Noct(ControlSurface):
     def _feedback(self):
         if not self._active:
             return
-        for cc in range(40, 52):
+        for cc in range(20, 24):
             parameter = self._parameter(cc)
             value = 0
             if parameter is not None and parameter.max > parameter.min:

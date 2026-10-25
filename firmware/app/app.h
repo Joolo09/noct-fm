@@ -22,7 +22,7 @@ enum { OBJ_PROJ, OBJ_PANEL, OBJ_BLE, OBJ_NOBJ };
 void ctl_send(uint32_t pkt, uint32_t to);   /* to: TO_USB | TO_BLE (and TO_SYNTH, TO_NOSYNTH); main loop or the tick.
                                           * Ctl's own notes (to USB or BLE) also play the synth */
 #define PROJ_MAGIC 0x4E4F4354u           /* "CTL1" */
-#define PROJ_FORMAT 2u                   /* 2: banks, scale, arpeggiator, sequencer (a format 1 gives the defaults) */
+#define PROJ_FORMAT 3u                   /* 2: banks, scale, arpeggiator, sequencer (a format 1 gives the defaults) */
 #define NKNOBS 4
 #define NBANKS 4
 #define NTRACKS 4
@@ -114,7 +114,7 @@ void app_overload(void);
 #define APP_SPLASH                       /* the name on paper, underlined */
 void app_splash(void);
 #define APP_TOUCH                        /* velocity and aftertouch from the keys (fm1-base's lib/touch.h) */
-#define APP_BTDEV                        /* the Bluetooth page's devices (fm1-base's lib/btdev.h) */
+// #define APP_BTDEV                        /* the Bluetooth page's devices (fm1-base's lib/btdev.h) */
 
 /* the host simulator (host.c): its checks, commands, a reboot, the screen reader's dump */
 #define APP_HOST_EXPECT

@@ -4,8 +4,8 @@
  * the glue between fm1-base's contract (app.h) and Ctl's parts: the settings (project.c), the engine (engine.c), the
  * UI (ui.c) and the GM synth (dsp/gm.c, its own -O2 unit). */
 #include "project.c"
-#include "engine.c"
-#include "ui.c"
+#include "midi_engine.c"
+#include "midi_ui.c"
 
 /* MIDI out: to the ports, and to the onboard synth (channel messages only: its queue is single-writer, and this
  * runs under the lock or in the tick; with Sound off no notes, but programs and controllers still set) */
@@ -17,47 +17,24 @@ void ctl_send(uint32_t pkt, uint32_t to)
         f = plat_lock();
     if (to & (TO_USB | TO_BLE))
         plat_midi_send(pkt, to & (TO_USB | TO_BLE));
-    if ((to & TO_SYNTH) || ((to & (TO_USB | TO_BLE)) && !(to & TO_NOSYNTH))) {
-        uint32_t st = (pkt >> 8) & 0xFFu;
-        if (st >= 0x80u && st < 0xF0u && (proj.sound != SOUND_OFF || st >= 0xB0u))
-            gm_midi(st, (pkt >> 16) & 0x7Fu, (pkt >> 24) & 0x7Fu);
-    }
     if (!in_tick)
         plat_unlock(f);
 }
 
 /* ---- the contract */
-static uint8_t synth_ok;
-void app_init(void)
-{
-    project_load();                      /* defaults when nothing (or another format) is saved */
-    if (!synth_ok)
-        synth_ok = gm_init() == 0;       /* the onboard GM synth, once */
-}
-void app_render(int32_t *lr, uint32_t n, uint32_t gain_q12)
-{
-    if (proj.sound == SOUND_OFF)
-        gm_skip(lr, n);
-    else
-        gm_render(lr, n, gain_q12);
-}
-void app_quiet(int32_t *lr, uint32_t n) { gm_skip(lr, n); }
-void app_overload(void) { gm_overload(); }
-void app_panic(void) { gm_panic(); }
+void app_init(void) { project_load(); midi_engine_init(); }
+static void silence(int32_t *lr,uint32_t n) { uint32_t i; for(i=0;i<2u*n;i++) lr[i]=0; }
+void app_render(int32_t *lr,uint32_t n,uint32_t gain_q12) { (void)gain_q12; silence(lr,n); }
+void app_quiet(int32_t *lr,uint32_t n) { silence(lr,n); }
+void app_overload(void) {}
+void app_panic(void) { engine_panic(); }
 void app_tick(void)
 {
     in_tick = 1;
     engine_tick();
     in_tick = 0;
 }
-void app_ui_init(void)
-{
-    static uint8_t booted;
-    ui_init();
-    if (!booted && FM1B_BLE && plat_ble_state() == BLE_OFF)
-        ui_say("BLUETOOTH OFF", "AFTER A CRASH");   /* not twice in a row: SAVE on Setup's Bluetooth page starts it */
-    booted = 1;
-}
+void app_ui_init(void) { ui_init(); }
 void app_frame(void) { ui_frame(); }
 void app_input_only(void) { ui_input_only(); }
 void app_say(const char *a, const char *b) { ui_say(a, b); }
@@ -73,5 +50,5 @@ void app_splash(void)
 }
 
 #ifdef PLAT_HOST
-#include "host.c"                        /* the host simulator's part: checks and commands */
+#include "midi_host.c"                        /* the host simulator's part: checks and commands */
 #endif

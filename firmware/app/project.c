@@ -30,24 +30,25 @@ void project_defaults(void)
     int b, k;
     memset(&proj, 0, sizeof proj);
     proj.magic = PROJ_MAGIC;
+    proj.rsv[0] = 2;
     proj.format = PROJ_FORMAT;
     proj.vel = 100;
     for (b = 0; b < NBANKS; b++)
         for (k = 0; k < NKNOBS; k++) {
-            proj.cc[b][k] = CC_DEFAULT[b][k];
+            proj.cc[b][k] = (uint8_t)(20+k);
             proj.val[b][k] = CC_DEFAULT[b][k] == 7 ? 100 : CC_DEFAULT[b][k] == 1 ? 0 : 64;
         }
     proj.scale = 0;                              /* chromatic: the keys as a keyboard (root C for a scale) */
     proj.tempo = 120;
-    proj.clock = CLK_EXT;
+    proj.clock = CLK_INT;
     proj.sound = SOUND_OFF;
     proj.master_cc = 7;
     proj.arp_rate = RATE_16;
     proj.arp_oct = 1;
     proj.seq_ch = 9;                             /* channel 10 */
     proj.glow = 1;
-    proj.touch = 1;                              /* velocity from the keys */
-    proj.at_mode = AT_CHAN;                      /* and aftertouch, per note */
+    proj.touch = 0;                              /* velocity from the keys */
+    proj.at_mode = AT_OFF;                      /* and aftertouch, per note */
     for (k = 0; k < NTRACKS; k++) {
         track_t *t = &proj.trk[k];
         t->steps = TRK_DEFAULT[k][0];
@@ -61,9 +62,9 @@ void project_defaults(void)
 static int project_valid(void)
 {
     int b, k;
-    if (proj.magic != PROJ_MAGIC || proj.format != PROJ_FORMAT)
+    if (proj.magic != PROJ_MAGIC || (proj.format != PROJ_FORMAT && proj.format != 2u))
         return 0;
-    if (proj.rsv[0] > 1u) return 0;
+    if (proj.format == PROJ_FORMAT && proj.rsv[0] != 2u) return 0;
     if (proj.chan > 14u || proj.vel < 1u || proj.vel > 127u || proj.octave < -3 || proj.octave > 3 ||
         proj.program > 127u || proj.bank >= NBANKS || proj.root > 11u || proj.scale >= NSCALES ||
         proj.human > 40u || proj.tempo < 40u || proj.tempo > 240u || proj.clock >= NCLK || proj.arp_on > 1u ||
@@ -91,10 +92,13 @@ int project_load(void)
     memset(&proj, 0, sizeof proj);
     n = plat_store_load(OBJ_PROJ, &proj, sizeof proj);
     if (n >= 8 && project_valid()) {
-        if (proj.sound == SOUND_KEYS) {          /* an older project's "Keys": on, MIDI in not played */
-            proj.sound = SOUND_IN;
-            proj.in_mute = 1;
-        }
+        /* Migrate the old DAW/user-bank format before validating its fixed-route fields. */
+        if (proj.format == 2u) { proj.clock = CLK_INT; proj.touch = 0; }
+        proj.format = PROJ_FORMAT;
+        proj.chan = proj.bank = proj.scale = proj.program = 0;
+        proj.sound = SOUND_OFF; proj.in_mute = 1; proj.at_mode = AT_OFF;
+        proj.rsv[0] = 2;
+        for (int b=0;b<NBANKS;b++) for(int k=0;k<NKNOBS;k++) proj.cc[b][k]=(uint8_t)(20+k);
         return 0;
     }
     project_defaults();
