@@ -1,0 +1,59 @@
+name: Build NOCT firmware
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['firmware/**', 'upstream/base/**', 'build.sh', '.github/workflows/firmware.yml']
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    env:
+      X0X_FONTSET: terminus
+      JIELI_DOCKER: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install Pillow
+      - name: Test DAW integrations and C application
+        run: |
+          python tests/test_integrations.py
+          sh build.sh --host --no-ble
+          mkdir -p test-output
+          firmware/app/build/host/noct-usb_host tests/noct.ctl test-output
+      - uses: actions/cache@v4
+        id: toolchain
+        with:
+          path: ~/.jieli
+          key: jieli-pi32v2-linux-v1
+      - name: Download official JieLi toolchain
+        if: steps.toolchain.outputs.cache-hit != 'true'
+        run: sh upstream/base/tools/get_toolchain.sh
+      - name: Download official AC79 SDK
+        run: |
+          if git clone --depth 1 --branch AC79NN_SDK_V1.2.1_2023-12-13 https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git "$HOME/fw-AC79_AIoT_SDK"; then
+            echo "AC79_SDK=$HOME/fw-AC79_AIoT_SDK" >> "$GITHUB_ENV"
+          else
+            git clone --depth 1 --branch AC79NN_SDK_V1.2.1_2023-12-13 https://github.com/Jieli-Tech/fw-AC79_AIoT_SDK.git "$HOME/fw-AC79-mirror"
+            echo "AC79_SDK=$HOME/fw-AC79-mirror" >> "$GITHUB_ENV"
+          fi
+      - name: Build USB firmware and run image checks
+        run: sh build.sh --no-ble
+      - uses: actions/upload-artifact@v4
+        with:
+          name: noct-usb-alpha
+          path: |
+            firmware/app/build/noct-usb.fwsc
+            firmware/app/build/noct.bin
+            firmware/app/build/loader/ota.bin
+          if-no-files-found: error
+      - name: Prepare installer bundle
+        run: python tools/prepare-site.py --firmware firmware/app/build/noct-usb.fwsc --output web-bundle
+      - uses: actions/upload-artifact@v4
+        with:
+          name: noct-installer-site
+          path: web-bundle
