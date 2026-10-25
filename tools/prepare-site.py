@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import shutil
+import zipfile
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
@@ -16,6 +17,13 @@ if args.output.resolve() == (root/'site').resolve():
     parser.error('Output must differ from site source')
 shutil.copytree(root/'site', args.output, dirs_exist_ok=True)
 shutil.copyfile(root/'LICENSE',args.output/'LICENSE')
+downloads=args.output/'downloads'
+downloads.mkdir(exist_ok=True)
+with zipfile.ZipFile(downloads/'NOCT-DAW-scripts.zip','w',zipfile.ZIP_DEFLATED) as archive:
+    for file in sorted((root/'integrations').rglob('*.py')):
+        if '__pycache__' not in file.parts:
+            archive.write(file,file.relative_to(root/'integrations'))
+    archive.write(root/'README.md','README.md')
 if args.firmware:
     data = args.firmware.read_bytes()
     if len(data) < 960 or len(data) > 2*1024*1024:
