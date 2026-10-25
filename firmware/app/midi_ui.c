@@ -32,7 +32,11 @@ static void play(uint32_t st,uint32_t a,uint32_t b){ctl_send(pkt3(st|proj.chan,a
 static void noct_control(uint32_t a,uint32_t b){ctl_send(pkt3(0xBFu,a,b),TO_USB|TO_BLE);}
 static void say(const char *a,const char *b)
 {
-    char *p=put_s(ui.message,a);if(b){p=put_s(p," ");put_s(p,b);}
+    uint32_t n=0;
+    while(a && *a && n<sizeof ui.message-1u)ui.message[n++]=*a++;
+    if(b && n<sizeof ui.message-1u)ui.message[n++]=' ';
+    while(b && *b && n<sizeof ui.message-1u)ui.message[n++]=*b++;
+    ui.message[n]=0;
     ui.msg_until=plat_ms()+1500u;
     if(ann_on())ann_say(ui.message,0,ANN_NOW);
 }
@@ -123,7 +127,7 @@ static void save_if_idle(void)
 {
     if(ui.save_done||!(ui.btn>>B_SAVE&1u)||plat_ms()-ui.save_t<1000u)return;
     ui.save_done=1;
-    if(ui.down||ui.playing||arp_engine.count||ui.sustain){say("RELEASE KEYS", "STOP BEFORE SAVE");return;}
+    if(ui.down||ui.playing||arp_engine.count||ui.sustain||plat_ms()<ui.touch_until){say("RELEASE KEYS", "STOP BEFORE SAVE");return;}
     if(project_save()==0){ui.dirty=0;ui.saves++;say("SETTINGS SAVED",0);}
     else say("FLASH SAVE FAILED",0);
 }

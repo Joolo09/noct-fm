@@ -10,3 +10,4 @@ web-bundle/
 _site/
 downloaded/
 test-output/
+dist/
