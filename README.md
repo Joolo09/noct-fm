@@ -93,7 +93,7 @@ node tests/installer.test.mjs
 sh build.sh --no-ble --release 0.4.0
 ```
 
-CI проверяет 12 тестов DAW-скриптов, 14 сценарных тестов C-программы и основной сценарий всех кнопок, 27 клавиш, 7 октав, CC, аккордов, совместного владения нотами, генератора, clock/BPM, Start/Stop/Continue, panic, сохранения и миграции. Сборка требует Linux x86-64, JieLi pi32v2 toolchain и AC79 SDK. Результат: `firmware/app/build/noct-usb-0.4.0.fwsc`. Сценарий GitHub Pages публикует последнюю успешную сборку. Исходники сайта — `site/`.
+CI проверяет 12 тестов DAW-скриптов, 15 сценарных тестов C-программы и основной сценарий всех кнопок, 27 клавиш, 7 октав, CC, аккордов, совместного владения нотами, генератора, clock/BPM, Start/Stop/Continue, panic, сохранения и миграции. Сборка требует Linux x86-64, JieLi pi32v2 toolchain и AC79 SDK. Результат: `firmware/app/build/noct-usb-0.4.0.fwsc`. Сценарий GitHub Pages публикует последнюю успешную сборку. Исходники сайта — `site/`.
 
 На Windows для host нужны Python 3.11+, Pillow и Zig 0.13.0; `tools/build-host.ps1 -NoBle`. Host — симулятор, он не управляет реальным MIDI и не прошивает устройство.
 

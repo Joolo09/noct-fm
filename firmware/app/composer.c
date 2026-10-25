@@ -5,7 +5,7 @@
 static const char *const GEN_MODE_NAME[3]={"MELODY","CHORDS","BOTH"};
 typedef struct {
     uint8_t melody[64],chords[4][3],mode,gate;
-    uint16_t rhythm;
+    uint16_t rhythm[4];
 } composition_t;
 static struct {
     composition_t plan[2];
@@ -43,12 +43,18 @@ static void generator_regenerate(void)
     base=(int)GEN_ROOT+12*proj.octave;
     while(base<12)base+=12;while(base>72)base-=12;
     p->mode=proj.gen_mode;p->gate=GEN_GATE;
-    p->rhythm=euclid(16,GEN_DENSITY,0);
     motif[0]=0;
     for(int i=1;i<16;i++)motif[i]=clamp(motif[i-1]+(int)(music_random(&random)%3u)-1,-3,3);
     previous[0]=base-12;previous[1]=base-8;previous[2]=base-5;
     for(int bar=0;bar<4;bar++){
         int degree=progression[bar],best=10000,chosen[3]={0,0,0};
+        /* Anchors plus syncopated motif, with varied gaps rather than arp pulses. */
+        uint8_t positions[14]={2,3,6,7,10,11,12,14,1,4,5,9,13,15};
+        for(int i=7;i>0;i--){int j=(int)(music_random(&random)%(unsigned)(i+1));uint8_t t=positions[i];positions[i]=positions[j];positions[j]=t;}
+        for(int i=13;i>8;i--){int j=8+(int)(music_random(&random)%(unsigned)(i-7));uint8_t t=positions[i];positions[i]=positions[j];positions[j]=t;}
+        p->rhythm[bar]=GEN_DENSITY?1u:0u;
+        if(GEN_DENSITY>1)p->rhythm[bar]|=1u<<8;
+        for(int i=2;i<GEN_DENSITY;i++)p->rhythm[bar]|=(uint16_t)(1u<<positions[i-2]);
         /* Choose the nearest inversion, preserving ascending voice order. */
         for(int inv=0;inv<3;inv++)for(int oct=-2;oct<=0;oct++){
             int candidate[3],cost=0;
@@ -65,7 +71,15 @@ static void generator_regenerate(void)
         for(int v=0;v<3;v++){p->chords[bar][v]=(uint8_t)chosen[v];previous[v]=chosen[v];}
         for(int step=0;step<16;step++){
             int d=degree+motif[step];
-            if(!(step%4))d=degree+2*((step/4)%3);
+            if(!(step%4)){
+                int nearest=d,cost=100;
+                for(int voice=0;voice<3;voice++)for(int oct=-1;oct<=1;oct++){
+                    int candidate=degree+2*voice+7*oct,distance=candidate-d;
+                    if(distance<0)distance=-distance;
+                    if(distance<cost){nearest=candidate;cost=distance;}
+                }
+                d=nearest;
+            }
             if(GEN_OCTAVES==3 && bar==2)d+=7;
             if(bar==3 && step>=12)d=step==12?1:0;
             while(d<0)d+=7;while(d>=range)d-=7;
@@ -89,9 +103,10 @@ static void generator_step(void)
         for(int i=0;i<3;i++){generator.notes[i]=p->chords[step/16u][i];bus_on(generator.notes[i],proj.vel);}
         generator.chord_gate=(uint16_t)(96u*p->gate/100u);
     }
-    if(p->mode!=1 && (p->rhythm>>local&1u)){
+    if(p->mode!=1 && (p->rhythm[step/16u]>>local&1u)){
         unsigned distance=1;
-        while(distance<16u && !(p->rhythm>>((local+distance)%16u)&1u))distance++;
+        while(distance<64u){unsigned next=(step+distance)%64u;
+            if(p->rhythm[next/16u]>>(next%16u)&1u)break;distance++;}
         generator_melody_off();generator.melody_note=p->melody[step];
         bus_on(generator.melody_note,proj.vel);
         generator.melody_gate=(uint16_t)(distance*6u*p->gate/100u);

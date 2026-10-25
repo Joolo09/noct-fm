@@ -9,13 +9,13 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 HOST=Path(os.environ.get('NOCT_HOST',ROOT/'firmware/app/build/host'/('noct-usb_host.exe' if os.name=='nt' else 'noct-usb_host')))
 
-def scenario(commands):
+def scenario(commands, midi_log=False):
     with tempfile.TemporaryDirectory(prefix='noct-midi-') as directory:
         script=Path(directory)/'test.ctl'
         script.write_text('\n'.join(commands)+'\n',encoding='utf8')
         result=subprocess.run([str(HOST),str(script),directory],capture_output=True,text=True,timeout=30)
         if result.returncode:raise AssertionError(result.stdout+'\n'+result.stderr)
-        return result.stdout
+        return (Path(directory)/"midi_out.txt").read_text() if midi_log else result.stdout
 
 class MidiEngineTests(unittest.TestCase):
     def test_musical_arp_orders(self):
@@ -170,5 +170,13 @@ class MidiEngineTests(unittest.TestCase):
                             ['tap SEQ','expect active 0','out'])
             patterns.append(re.findall(r'out 90 ([0-9A-F]{2}) 64 -> USB',output))
         self.assertEqual(*patterns)
+
+
+    def test_melody_has_phrased_rhythm_instead_of_constant_arp_pulses(self):
+        output=scenario(['wait 800','tap GLO','tap GLO','tap SEQ']+
+                        ['midi USB F8 00 00','wait 18']*384+['tap SEQ'],midi_log=True)
+        times=[int(t) for t in re.findall(r'(\d+) ms: 90 [0-9A-F]{2} 64 -> USB',output)]
+        self.assertEqual(len(times),32)
+        self.assertGreater(len(set(b-a for a,b in zip(times,times[1:]))),1)
 
 if __name__=='__main__':unittest.main(verbosity=2)
