@@ -1,0 +1,13 @@
+test_controls_and_transport (__main__.FLTests.test_controls_and_transport) ... ok
+test_manual_links_remain_available (__main__.FLTests.test_manual_links_remain_available) ... ok
+test_notes_and_other_channels_pass (__main__.FLTests.test_notes_and_other_channels_pass) ... ok
+test_profile_gating_and_feedback_cache (__main__.FLTests.test_profile_gating_and_feedback_cache) ... ok
+test_feedback_cache_and_profile (__main__.LiveTests.test_feedback_cache_and_profile) ... ok
+test_missing_sends_and_device (__main__.LiveTests.test_missing_sends_and_device) ... ok
+test_mixer_macro_and_transport (__main__.LiveTests.test_mixer_macro_and_transport) ... ok
+test_quantized_parameter (__main__.LiveTests.test_quantized_parameter) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.006s
+
+OK

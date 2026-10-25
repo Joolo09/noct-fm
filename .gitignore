@@ -1,0 +1,7 @@
+tools/zig-windows-*/
+tools/zig.zip
+tools/zig-cache/
+tools/zig-local/
+firmware/app/build/
+__pycache__/
+preview/anim-*.png

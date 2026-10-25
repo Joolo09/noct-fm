@@ -1,0 +1,34 @@
+  ok profile == 0
+  ok chan == 0
+  ok sound == 2
+  ok cc0 == 20
+  out BF 77 00 -> USB
+  ok out BF 14 41 -> USB
+  ok out BF 6E 7F -> USB
+  ok out BF 6F 7F -> USB
+  ok out BF 70 7F -> USB
+  ok recording == 0
+  out BF 14 41 -> USB
+  out BF 6E 7F -> USB
+  out BF 6F 7F -> USB
+  out BF 70 7F -> USB
+  out 90 35 64 -> USB
+  ok profile == 1
+  ok cc0 == 40
+  ok out 80 35 00 -> USB
+  ok out BF 77 01 -> USB
+  ok val0 == 100
+  ok out BF 28 65 -> USB
+  ok playing == 1
+  ok playing == 0
+  ok bank == 1
+  ok cc0 == 44
+  ok bank == 2
+  ok cc0 == 48
+  ok profile == 1
+  ok bank == 2
+  ok cc0 == 48
+  ok profile == 0
+  ok cc0 == 20
+  ok bank == 0
+host: 3380 ms simulated, 217 blits, render 0.0% of real time (host CPU)
