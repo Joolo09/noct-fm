@@ -54,7 +54,7 @@ static void noct_draw(void)
     else {
         if(ui.page==2){
             p=put_s(t,GEN_SCALE==0?"MAJOR":GEN_SCALE==1?"MINOR":"PENTA");
-            p=put_s(p," / ");p=put_u(p,GEN_DENSITY);p=put_s(p," STEPS / ROOT ");put_u(p,GEN_ROOT);
+            p=put_s(p," / ");p=put_s(p,GEN_MODE_NAME[proj.gen_mode]);p=put_s(p," / ");put_u(p,GEN_ROOT);
         }else if(ui.page==3)put_s(t,clock_external()?"MIDI CLOCK LOCKED":"DAW BPM / INTERNAL GRID");
         else if(CHORD_ON)put_s(t,CHORD_NAME[CHORD_TYPE]);
         else {
@@ -83,11 +83,11 @@ static void noct_draw(void)
             if(k==2)put_u(t,proj.arp_oct);
             if(k==3)put_u(t,proj.bpm10/10u);
         }else if(gen_edit){
-            static const char *const labels[4]={"RATE","DENS","SCALE","OCTS"};name=labels[k];
-            if(k==0)put_s(t,RATE_NAME[proj.arp_rate]);
-            if(k==1)put_u(t,GEN_DENSITY);
-            if(k==2)put_s(t,GEN_SCALE==0?"MAJ":GEN_SCALE==1?"MIN":"PENT");
-            if(k==3)put_u(t,GEN_OCTAVES);
+            static const char *const labels[4]={"MODE","DENS","RANGE","GATE"};name=(k==1 && proj.gen_mode==1)?"PROG":labels[k];
+            if(k==0)put_s(t,proj.gen_mode==0?"MEL":proj.gen_mode==1?"CHORD":"BOTH");
+            if(k==1)put_u(t,proj.gen_mode==1?proj.gen_progression+1u:GEN_DENSITY);
+            if(k==2)put_u(t,GEN_OCTAVES);
+            if(k==3)put_u(t,GEN_GATE);
         }else{put_u(put_s(t,"CC "),20u+(uint32_t)k);name=t;}
         noct_center(x+25,8,&FONT_XS,name,hot?K_MINT:K_DIM);
         if(!arp_edit && !gen_edit)put_u(t,(uint32_t)v);
@@ -95,7 +95,7 @@ static void noct_draw(void)
         if(!arp_edit && !gen_edit){cv_rect(x+6,57,38,3,K_LINE);cv_rect(x+6,57,38*v/127,3,K_HOT);}
     }
     cv_band(70,26);cv_rect(8,2,224,1,K_LINE);
-    if(generator.enabled){put_u(put_s(t,"GEN STEP "),generator.step+1u);cv_text(8,9,&FONT_XS,t,generator.running?K_MINT:K_DIM);}
+    if(generator.enabled){if(generator.pending)put_s(t,"NEXT BAR");else if(generator.wait_bar)put_s(t,"WAIT BAR");else if(generator.running && clock_external() && now-arp_engine.last_clock>500u)put_s(t,"WAIT CLOCK");else {p=put_u(put_s(t,"BAR "),generator.step/16u+1u);put_u(put_s(p," : "),generator.step%16u+1u);}cv_text(8,9,&FONT_XS,t,generator.running?K_MINT:K_DIM);}
     else cv_text(8,9,&FONT_XS,arp_edit?"HOLD ARP: EDIT":gen_edit?"HOLD SEQ: EDIT":ui.fx_on?"FX ON / ARP":"FX BYPASS / ARP",K_DIM);
     cv_text(132,9,&FONT_XS,"SELECT: BPM",K_DIM);
     cv_blit(0,144);

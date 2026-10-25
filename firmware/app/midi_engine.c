@@ -10,37 +10,14 @@ static struct {
     uint8_t have_clock, arp_paused, remote_running, transport_known, daw_tempo_valid;
     uint32_t beat_start, clock_pulses;
 } arp_engine;
-static struct {
-    uint8_t enabled,running,notes[MAX_VOICING],count,gate,pattern[16],step;
-    uint32_t seed;
-} generator;
-static void generator_off(void)
-{int i;for(i=0;i<generator.count;i++)bus_off(generator.notes[i]);generator.count=generator.gate=0;}
-static uint32_t music_random(uint32_t *state)
-{*state^=*state<<13;*state^=*state>>17;*state^=*state<<5;return *state;}
-static void generator_regenerate(void)
-{int i;for(i=0;i<16;i++)generator.pattern[i]=(uint8_t)(music_random(&generator.seed)%21u);}
-static void generator_step(void)
-{
-    static const uint8_t scales[3][7]={{0,2,4,5,7,9,11},{0,2,3,5,7,8,10},{0,3,5,7,10,0,0}};
-    int i,len=GEN_SCALE==2?5:7,degree=generator.pattern[generator.step]%((int)GEN_OCTAVES*len);
-    int root=(int)GEN_ROOT+12*proj.octave+12*(degree/len)+scales[GEN_SCALE][degree%len];
-    generator_off();
-    if(((int)generator.step*GEN_DENSITY)%16<GEN_DENSITY){
-        generator.count=(uint8_t)note_voicing(root,generator.notes);
-        for(i=0;i<generator.count;i++)bus_on(generator.notes[i],proj.vel);
-        generator.gate=(uint8_t)((RATE_TICKS[proj.arp_rate]*GEN_GATE)/100u);
-        if(!generator.gate)generator.gate=1;
-    }
-    generator.step=(uint8_t)((generator.step+1)%16);
-}
+#include "composer.c"
 static void engine_tempo(uint32_t value)
 {
     proj.bpm10=(uint16_t)clamp((int32_t)value,200,9990);
     proj.tempo=(uint8_t)clamp((proj.bpm10+5)/10,40,240);
 }
 static int clock_external(void)
-{return proj.clock==CLK_EXT || (proj.clock==CLK_AUTO && arp_engine.have_clock && plat_ms()-arp_engine.last_clock<500u);}
+{return proj.clock==CLK_EXT || (proj.clock==CLK_AUTO && arp_engine.have_clock && (arp_engine.remote_running || (!generator.preview && plat_ms()-arp_engine.last_clock<500u)));}
 
 static void eng_send(uint32_t st, uint32_t a, uint32_t b)
 { ctl_send((st >> 4) | st << 8 | a << 16 | b << 24, TO_USB | TO_BLE); }
@@ -100,9 +77,8 @@ static void arp_step(void)
 static void arp_clock(void)
 {
     if(arp_engine.gate && !--arp_engine.gate)arp_off();
-    if(generator.gate && !--generator.gate)generator_off();
     if(proj.arp_on && arp_engine.count && arp_engine.ticks%RATE_TICKS[proj.arp_rate]==0u)arp_step();
-    if(generator.enabled && generator.running && arp_engine.ticks%RATE_TICKS[proj.arp_rate]==0u)generator_step();
+    generator_clock();
     arp_engine.ticks++;
 }
 void arp_press(int note)
@@ -142,11 +118,13 @@ void arp_release(int note)
 }
 void arp_latch_changed(void)
 {uint32_t f=plat_lock();if(!proj.arp_latch)arp_prune();plat_unlock(f);}
+static void arp_clear(void)
+{arp_off();memset(arp_engine.refs,0,sizeof arp_engine.refs);arp_engine.count=0;arp_engine.position=0;}
 void engine_panic(void)
 {
     uint32_t f=plat_lock();
     arp_off();
-    generator_off();generator.running=0;
+    generator_off();generator.running=generator.preview=0;
     memset(arp_engine.refs,0,sizeof arp_engine.refs);
     arp_engine.count=0;arp_engine.position=0;
     if(arp_engine.mod)eng_send(0xB0u|proj.chan,1,0);
@@ -166,7 +144,7 @@ void engine_tick(void)
     }
     if(clock_external()){
         /* Missing external clocks must never leave the last gate hanging. */
-        if(plat_ms()-arp_engine.last_clock>500u){arp_off();generator_off();}
+        if(plat_ms()-arp_engine.last_clock>500u){arp_off();generator_off();generator.resume_chord=1;}
         return;
     }
     arp_engine.phase+=proj.bpm10*24u;
@@ -176,11 +154,12 @@ static void engine_transport(int on,int restart)
 {
     uint32_t f=plat_lock();
     arp_engine.transport_known=1;arp_engine.remote_running=(uint8_t)!!on;
+    generator.preview=0;generator.wait_bar=0;generator.resume_chord=(uint8_t)(on && !restart);
     generator.running=(uint8_t)(on && generator.enabled);
     if(!on){arp_off();generator_off();arp_engine.arp_paused=1;}
     else {
         arp_engine.arp_paused=0;
-        if(restart){arp_off();generator_off();arp_engine.ticks=arp_engine.position=arp_engine.phase=0;generator.step=0;}
+        if(restart){arp_off();generator_off();arp_engine.ticks=arp_engine.position=arp_engine.phase=0;generator.step=0;generator.cursor=0;}
     }
     plat_unlock(f);
 }
@@ -196,7 +175,7 @@ void engine_midi_clock(uint32_t st)
             if(!arp_engine.daw_tempo_valid && delta>=60u && delta<=3000u)engine_tempo(600000u/delta);
             arp_engine.beat_start=now;arp_engine.clock_pulses=1;
         }
-        arp_engine.phase=0;arp_clock();
+        if(!generator.preview || proj.clock==CLK_EXT){arp_engine.phase=0;arp_clock();}
     }
     if(st==0xFAu)engine_transport(1,1);
     if(st==0xFBu)engine_transport(1,0);
@@ -210,6 +189,6 @@ static int eng_pool(uint8_t *out){int i;for(i=0;i<arp_engine.count;i++)out[i]=ar
 static void midi_engine_init(void)
 {
     memset(&arp_engine,0,sizeof arp_engine);arp_engine.note=255u;arp_engine.random=2463534242u;
-    memset(&generator,0,sizeof generator);generator.seed=978437u;generator_regenerate();
+    memset(&generator,0,sizeof generator);generator.melody_note=255;generator_regenerate();
     for(int i=0;i<128;i++)note_owners[i]=0;
 }

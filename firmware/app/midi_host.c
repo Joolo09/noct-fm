@@ -26,6 +26,9 @@ int app_expect(const char *what,int *got)
     else if(!strcmp(what,"chord_type"))n=CHORD_TYPE;
     else if(!strcmp(what,"generator"))n=generator.enabled;
     else if(!strcmp(what,"gen_running"))n=generator.running;
+    else if(!strcmp(what,"gen_mode"))n=proj.gen_mode;
+    else if(!strcmp(what,"gen_pending"))n=!!generator.pending;
+    else if(!strcmp(what,"gen_cursor"))n=generator.cursor;
     else if(!strcmp(what,"gen_step"))n=generator.step;
     else if(!strcmp(what,"fx"))n=ui.fx_on;
     else if(!strcmp(what,"density"))n=GEN_DENSITY;

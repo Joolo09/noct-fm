@@ -41,7 +41,8 @@ void project_defaults(void)
     proj.scale = 0;                              /* chromatic: the keys as a keyboard (root C for a scale) */
     proj.tempo = 120;
     proj.bpm10 = 1200;
-    proj.rsv[5] = 8; proj.rsv[6] = 60; proj.rsv[7] = 1; proj.rsv[8] = 50;
+    proj.rsv[5] = 8; proj.rsv[6] = 60; proj.rsv[7] = 1; proj.rsv[8] = 85;
+    proj.gen_seed=978437u;
     proj.clock = CLK_INT_OUT; /* AUTO in the MIDI engine */
     proj.sound = SOUND_OFF;
     proj.master_cc = 7;
@@ -64,12 +65,13 @@ void project_defaults(void)
 static int project_valid(void)
 {
     int b, k;
-    if (proj.magic != PROJ_MAGIC || (proj.format != PROJ_FORMAT && proj.format != 2u && proj.format != 3u))
+    if (proj.magic != PROJ_MAGIC || (proj.format != PROJ_FORMAT && proj.format != 2u && proj.format != 3u && proj.format != 4u))
         return 0;
     if (proj.format == PROJ_FORMAT && proj.rsv[0] != 2u) return 0;
-    if (proj.format == PROJ_FORMAT && (proj.bpm10<200u || proj.bpm10>9990u || proj.rsv[1]>1u ||
+    if (proj.format >= 4u && (proj.bpm10<200u || proj.bpm10>9990u || proj.rsv[1]>1u ||
         proj.rsv[2]>5u || proj.rsv[4]>2u || proj.rsv[5]>16u || proj.rsv[6]>115u ||
         proj.rsv[7]<1u || proj.rsv[7]>3u || proj.rsv[8]<10u || proj.rsv[8]>100u)) return 0;
+    if (proj.format == PROJ_FORMAT && (!proj.gen_seed || proj.gen_mode>2u || proj.gen_progression>3u)) return 0;
     if (proj.chan > 14u || proj.vel < 1u || proj.vel > 127u || proj.octave < -3 || proj.octave > 3 ||
         proj.program > 127u || proj.bank >= NBANKS || proj.root > 11u || proj.scale >= NSCALES ||
         proj.human > 40u || proj.tempo < 40u || proj.tempo > 240u || proj.clock >= NCLK || proj.arp_on > 1u ||
@@ -98,12 +100,13 @@ int project_load(void)
     n = plat_store_load(OBJ_PROJ, &proj, sizeof proj);
     if (n >= 8 && project_valid()) {
         /* Migrate the old DAW/user-bank format before validating its fixed-route fields. */
-        if (proj.format != PROJ_FORMAT) {
+        if (proj.format < 4u) {
             proj.bpm10=(uint16_t)(proj.tempo*10u);
             memset(proj.rsv,0,sizeof proj.rsv);
             proj.rsv[5]=8;proj.rsv[6]=60;proj.rsv[7]=1;proj.rsv[8]=50;
             proj.clock=CLK_INT_OUT;proj.touch=0;
         }
+        if(proj.format<5u){proj.gen_seed=978437u;proj.gen_mode=0;proj.gen_progression=0;proj.rsv[8]=85;}
         proj.format = PROJ_FORMAT;
         proj.chan = proj.bank = proj.scale = proj.program = 0;
         proj.sound = SOUND_OFF; proj.in_mute = 1; proj.at_mode = AT_OFF;

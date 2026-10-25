@@ -58,6 +58,7 @@ static void key_down(int k,uint32_t vel)
 {
     int n=53+k+12*proj.octave,i;
     if(k<0||k>=NKEYS||n<0||n>127)return;
+    if(plat_buttons()>>B_SEQ&1u){GEN_ROOT=(uint8_t)clamp(53+k,0,115);ui.seq_used=1;ui.dirty=1;generator_regenerate();return;}
     key_up(k);
     ui.down|=1u<<k;ui.key_vel[k]=(uint8_t)vel;
     ui.key_count[k]=(uint8_t)note_voicing(n,ui.key_note[k]);
@@ -66,7 +67,6 @@ static void key_down(int k,uint32_t vel)
         if(proj.arp_on)arp_press(ui.key_note[k][i]);
         else bus_on(ui.key_note[k][i],vel);
     }
-    if(ui.btn>>B_SEQ&1u){GEN_ROOT=(uint8_t)clamp(53+k,0,115);ui.seq_used=1;ui.dirty=1;}
     put_u(put_s(ui.last,"NOTE "),(uint32_t)n);
 }
 static void all_keys_up(void){int i;for(i=0;i<NKEYS;i++)key_up(i);}
@@ -77,13 +77,13 @@ static void panic(void)
 }
 static void revoice(int octave_delta,int arp_toggle)
 {
-    uint32_t held=ui.down;uint8_t velocity[NKEYS],gen_running=generator.running;int i;
+    uint32_t held=ui.down;uint8_t velocity[NKEYS];int i;
     memcpy(velocity,ui.key_vel,sizeof velocity);
-    all_keys_up();engine_panic();
+    all_keys_up();arp_clear();
     proj.octave=(int8_t)clamp(proj.octave+octave_delta,-3,3);
     if(arp_toggle)proj.arp_on=(uint8_t)!proj.arp_on;
     for(i=0;i<NKEYS;i++)if(held>>i&1u)key_down(i,velocity[i]);
-    generator.running=gen_running;
+    if(octave_delta)generator_regenerate();
     ui.dirty=1;
 }
 static void touch_apply(void)
@@ -134,7 +134,7 @@ static void midi_in(void)
                 plat_unlock(f);ui.tempo_pending=0;
             }
             if(n==116u){
-                if(!arp_engine.transport_known || ui.playing!=(uint8_t)!!v)engine_transport(v!=0,0);
+                if(!arp_engine.transport_known || ui.playing!=(uint8_t)!!v || (!v && generator.preview))engine_transport(v!=0,v!=0);
                 ui.playing=(uint8_t)!!v;
                 if(!v && ui.sustain){ui.sustain=0;play(0xB0u,64,0);}
             }
@@ -203,14 +203,10 @@ static void button_up(int b)
     case B_HOME:ui.page=0;say("NOCT MIDI","ONE FIXED PRESET");break;
     case B_SEQ:
         if(!ui.seq_used){
-            uint32_t f=plat_lock();
-            generator.enabled=!generator.enabled;generator_off();ui.page=2;
-            if(generator.enabled){ui.playing=1;engine_transport(1,1);noct_control(110,127);}
-            else generator.running=0;
-            plat_unlock(f);
+            generator_toggle();ui.page=2;
             say("GENERATOR",generator.enabled?"ON":"OFF");
         }break;
-    case B_EDIT:{uint32_t f=plat_lock();generator_off();generator_regenerate();generator.step=0;plat_unlock(f);ui.page=2;say("NEW NOTE PATTERN",0);break;}
+    case B_EDIT:music_random(&proj.gen_seed);proj.gen_progression=(uint8_t)((proj.gen_progression+1)%4);generator_regenerate();ui.dirty=1;ui.page=2;say("NEW PHRASE",generator.running?"NEXT BAR":"READY");break;
     case B_GLO:if(!ui.glo_used)cycle_clock();break;
     default:break;
     }
@@ -232,11 +228,12 @@ static void input(void)
             if(i==3){noct_control(114,proj.bpm10>>7);noct_control(115,proj.bpm10&127u);}
         }else if(btn>>B_SEQ&1u){
             uint32_t f=plat_lock();ui.seq_used=1;
-            if(i==0)proj.arp_rate=(uint8_t)clamp(proj.arp_rate+e,0,NRATE-1);
-            if(i==1)GEN_DENSITY=(uint8_t)clamp(GEN_DENSITY+e,0,16);
-            if(i==2)GEN_SCALE=(uint8_t)clamp(GEN_SCALE+e,0,2);
-            if(i==3)GEN_OCTAVES=(uint8_t)clamp(GEN_OCTAVES+e,1,3);
-            plat_unlock(f);ui.dirty=1;ui.page=2;say("GENERATOR SETTINGS",0);
+            if(i==0)proj.gen_mode=(uint8_t)clamp(proj.gen_mode+e,0,2);
+            if(i==1 && proj.gen_mode==1)proj.gen_progression=(uint8_t)clamp(proj.gen_progression+e,0,3);
+            if(i==1 && proj.gen_mode!=1)GEN_DENSITY=(uint8_t)clamp(GEN_DENSITY+e,0,16);
+            if(i==2)GEN_OCTAVES=(uint8_t)clamp(GEN_OCTAVES+e,1,3);
+            if(i==3)GEN_GATE=(uint8_t)clamp(GEN_GATE+e,10,100);
+            plat_unlock(f);generator_regenerate();ui.dirty=1;ui.page=2;say("GENERATOR",GEN_MODE_NAME[proj.gen_mode]);
         }else{
             int value=clamp(proj.val[0][i]+e,0,127);
             if(value!=proj.val[0][i]){proj.val[0][i]=(uint8_t)value;noct_control(20u+(uint32_t)i,(uint32_t)value);}
@@ -250,7 +247,7 @@ static void input(void)
         else proj.arp_mode=(uint8_t)clamp(proj.arp_mode+e,0,NARP-1);
         plat_unlock(f);if(CHORD_ON)revoice(0,0);ui.dirty=1;
     }
-    if((e=plat_enc(EN_PRESET))!=0){uint32_t f=plat_lock();GEN_SCALE=(uint8_t)clamp(GEN_SCALE+e,0,2);plat_unlock(f);ui.page=2;ui.dirty=1;}
+    if((e=plat_enc(EN_PRESET))!=0){uint32_t f=plat_lock();GEN_SCALE=(uint8_t)clamp(GEN_SCALE+e,0,2);plat_unlock(f);generator_regenerate();ui.page=2;ui.dirty=1;}
     ui.master_raw+=((int32_t)plat_master()-ui.master_raw)/4;
     i=clamp(ui.master_raw*127/4000,0,127);
     if(i!=ui.master_sent && (i-ui.master_sent>1||ui.master_sent-i>1||i==0||i==127)){

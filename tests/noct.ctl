@@ -187,11 +187,11 @@ expect recording 0
 tap SEQ
 expect generator 1
 expect gen_running 1
-expect_out USB BF 6E 7F
+expect playing 0
 out
 wait 1000
 expect notes_out >2
-tap PLAY
+midi USB FC 00 00
 expect playing 0
 expect gen_running 0
 expect active 0
