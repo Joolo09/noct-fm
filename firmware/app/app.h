@@ -22,7 +22,7 @@ enum { OBJ_PROJ, OBJ_PANEL, OBJ_BLE, OBJ_NOBJ };
 void ctl_send(uint32_t pkt, uint32_t to);   /* to: TO_USB | TO_BLE (and TO_SYNTH, TO_NOSYNTH); main loop or the tick.
                                           * Ctl's own notes (to USB or BLE) also play the synth */
 #define PROJ_MAGIC 0x4E4F4354u           /* "CTL1" */
-#define PROJ_FORMAT 3u                   /* 2: banks, scale, arpeggiator, sequencer (a format 1 gives the defaults) */
+#define PROJ_FORMAT 4u                   /* 4: chords, generator and 14-bit tempo */
 #define NKNOBS 4
 #define NBANKS 4
 #define NTRACKS 4
@@ -66,7 +66,8 @@ typedef struct {
     int8_t vel_curve;                    /* -5..+5: the velocity curve, 0 as measured (+ harder to reach 127) */
     int8_t at_sens;                      /* -5..+5: how far a lean goes for full aftertouch, 0 as measured */
     uint8_t ble_off;                     /* Bluetooth switched off (Setup, Bluetooth page); 0, the default: on */
-    uint8_t rsv[9];                      /* room to grow */
+    uint8_t rsv[9];                      /* profile, chords/type, reserved, generator scale/density/root/octaves/gate */
+    uint16_t bpm10;                      /* 20.0..999.0 BPM in tenths */
 } project_t;
 
 extern project_t proj;

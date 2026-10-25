@@ -20,8 +20,8 @@ def scenario(commands):
 class MidiEngineTests(unittest.TestCase):
     def test_musical_arp_orders(self):
         # First note sounds immediately; then the complete chord follows the selected pattern.
-        for mode,following in [(0,[57,60,53,57]),(1,[57,53,60,57]),
-                               (2,[57,60,57,53]),(4,[53,57,60,53])]:
+        for mode,following in [(0,[57,60,53,57,60]),(1,[57,53,60,57,53]),
+                               (2,[57,60,57,53,57]),(4,[53,57,60,53,57])]:
             with self.subTest(mode=mode):
                 output=scenario(['wait 800',f'spin ALGO {mode}','tap ARP','out',
                     'key 7 down','key 0 down','key 4 down','wait 520',
@@ -52,5 +52,54 @@ class MidiEngineTests(unittest.TestCase):
         self.assertEqual(len(notes),189)
         self.assertEqual(min(notes),17)
         self.assertEqual(max(notes),115)
+
+    def test_chord_types_and_shared_notes(self):
+        for kind,intervals in enumerate(((0,4,7),(0,3,7),(0,2,7),(0,5,7),(0,4,7,11),(0,3,7,10))):
+            with self.subTest(kind=kind):
+                output=scenario(['wait 800','tap SEL',f'spin ALGO {kind}','out','key 0 down',
+                                 'key 0 up','expect active 0','expect notes_on 0','out'])
+                notes=[int(n,16) for n in re.findall(r'out 90 ([0-9A-F]{2}) 64 -> USB',output)]
+                self.assertEqual(notes,[53+x for x in intervals])
+        output=scenario(['wait 800','tap SEL','out','key 0 down','key 4 down',
+                         'key 0 up','expect active 3','key 4 up','expect active 0','out'])
+        self.assertEqual(len(re.findall(r'out 90 39 64 -> USB',output)),1)
+        self.assertEqual(len(re.findall(r'out 80 39 00 -> USB',output)),1)
+
+    def test_generator_scales_and_stop_ownership(self):
+        for mode,scale in enumerate(({0,2,4,5,7,9,11},{0,2,3,5,7,8,10},{0,3,5,7,10})):
+            with self.subTest(scale=mode):
+                output=scenario(['wait 800',f'spin PRESET {mode}','out','tap SEQ',
+                                 'wait 2000','tap PLAY','expect active 0','out'])
+                notes=[int(n,16) for n in re.findall(r'out 90 ([0-9A-F]{2}) 64 -> USB',output)]
+                self.assertGreater(len(notes),3)
+                self.assertTrue(all(n%12 in scale for n in notes))
+        scenario(['wait 800','key 7 down','tap SEQ','wait 600','tap PLAY',
+                  'expect active 1','key 7 up','expect active 0'])
+
+    def test_daw_bpm_clock_and_transport(self):
+        commands=['wait 800','midi USB BF 72 0A','midi USB BF 73 7D','expect bpm10 1405',
+                  'tap GLO','tap GLO','expect clock 2','tap SEQ','out','wait 100','expect notes_out 0']
+        commands+=['midi USB F8 00 00','wait 20']*48
+        commands+=['expect bpm10 1405','expect notes_out >3','midi USB FC 00 00',
+                   'expect active 0','out']
+        commands+=['midi USB F8 00 00','wait 20']*24
+        commands+=['expect notes_out 0','midi USB FB 00 00']
+        commands+=['midi USB F8 00 00','wait 20']*24
+        commands+=['expect notes_out >1','midi USB FC 00 00','expect active 0']
+        scenario(commands)
+
+    def test_tempo_estimation_without_script(self):
+        # The host's MIDI command itself advances 2 ms: 23 + 2 = 25 ms/F8.
+        commands=['wait 800']+['midi USB F8 00 00','wait 23']*25
+        commands+=['expect bpm10 1000','expect chan 0']
+        scenario(commands)
+
+    def test_edit_regenerates_note_pattern(self):
+        patterns=[]
+        for regenerate in (False,True):
+            commands=['wait 800']+(['tap EDIT'] if regenerate else [])
+            output=scenario(commands+['tap SEQ','wait 1800','tap PLAY','expect active 0','out'])
+            patterns.append(re.findall(r'out 90 ([0-9A-F]{2}) 64 -> USB',output))
+        self.assertNotEqual(patterns[0],patterns[1])
 
 if __name__=='__main__':unittest.main(verbosity=2)

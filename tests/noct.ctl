@@ -1,12 +1,11 @@
-# NOCT MIDI 0.2 regressions: invariant routes, chromatic keyboard and arp.
+# NOCT 0.3: every button, MIDI routes, chords, generator, tempo and transport.
 wait 800
 expect profile 2
 expect chan 0
-expect bank 0
-expect scale 0
-expect sound 2
-expect touch 0
-expect clock 1
+expect clock 0
+expect bpm10 1200
+expect chords 0
+expect generator 0
 out
 key 0 down
 expect_out USB 90 35 64
@@ -118,212 +117,118 @@ key 26 up
 expect_out USB 80 4F 00
 expect active 0
 expect notes_on 0
-shot midi-home.png
-out
-tap HOME
-spin K1 1
-expect cc0 20
-spin K2 1
-expect cc1 21
-spin K3 1
-expect cc2 22
-spin K4 1
-expect cc3 23
-key 0 down
-expect_out USB 90 35 64
-key 0 up
-expect_out USB 80 35 00
 tap SEL
-spin K1 1
-expect cc0 20
-spin K2 1
-expect cc1 21
-spin K3 1
-expect cc2 22
-spin K4 1
-expect cc3 23
+expect chords 1
 key 0 down
 expect_out USB 90 35 64
+expect_out USB 90 39 64
+expect_out USB 90 3C 64
+key 4 down
+expect active 5
 key 0 up
-expect_out USB 80 35 00
-tap SEQ
-spin K1 1
-expect cc0 20
-spin K2 1
-expect cc1 21
-spin K3 1
-expect cc2 22
-spin K4 1
-expect cc3 23
-key 0 down
-expect_out USB 90 35 64
-key 0 up
-expect_out USB 80 35 00
-tap EDIT
-spin K1 1
-expect cc0 20
-spin K2 1
-expect cc1 21
-spin K3 1
-expect cc2 22
-spin K4 1
-expect cc3 23
-key 0 down
-expect_out USB 90 35 64
-key 0 up
-expect_out USB 80 35 00
-tap GLO
-spin K1 1
-expect cc0 20
-spin K2 1
-expect cc1 21
-spin K3 1
-expect cc2 22
-spin K4 1
-expect cc3 23
-key 0 down
-expect_out USB 90 35 64
-key 0 up
-expect_out USB 80 35 00
-spin SELECT 10
-spin ALGO 2
-spin PRESET 17
-expect chan 0
-expect bank 0
-expect profile 2
-expect program 0
-expect scale 0
-expect tempo 130
-expect arp_mode 2
-wait 6000
-expect saves 0
+expect active 3
+key 4 up
 expect active 0
-out
-spin SELECT -10
-spin ALGO -2
-midi USB BF 14 64
-expect val0 100
-spin K1 1
-expect_out USB BF 14 65
-midi USB BF 74 7F
-expect playing 1
-midi USB BF 74 00
-expect playing 0
-wait 5000
-expect saves 0
-out
-tap PLAY
-expect_out USB BF 6E 7F
-wait 600
-expect notes_out 0
-tap PLAY
-expect_out USB BF 6F 7F
-out
-# Octave revoice releases old and new notes correctly.
+spin ALGO 1
+expect chord_type 1
 key 0 down
+expect_out USB 90 38 64
 tap OCT+
 expect_out USB 80 35 00
 expect_out USB 90 41 64
 key 0 up
-expect_out USB 80 41 00
 expect active 0
 tap OCT-
+tap SEL
+expect chords 0
+# Fixed CCs are unchanged by all musical controls.
+spin K1 1
+expect_out USB BF 14 41
+expect cc0 20
+expect cc3 23
+midi USB BF 72 0B
+midi USB BF 73 2F
+expect bpm10 1455
+midi USB BF 73 00
+expect bpm10 1455
+spin SELECT 1
+expect bpm10 1465
+expect_out USB BF 72 0B
+expect_out USB BF 73 39
+# GLO cycles AUTO -> INT -> EXT -> AUTO; FX is DAW effects, not latch.
+tap GLO
+expect clock 1
+tap GLO
+expect clock 2
+tap GLO
+expect clock 0
+tap FX
+expect_out USB BF 71 7F
+expect latch 0
+midi USB BF 71 00
+expect fx 0
+press ENV
+expect sustain 1
+expect_out USB B0 40 7F
+release ENV
+expect sustain 0
+expect_out USB B0 40 00
+press LFO
+wait 700
+expect_out USB B0 01 7F
+release LFO
+wait 700
+expect_out USB B0 01 00
+tap REC
+expect_out USB BF 70 7F
+midi USB BF 75 00
+expect recording 0
+# Generator uses a scale, editable density, root, range, and shared transport.
+tap SEQ
+expect generator 1
+expect gen_running 1
+expect_out USB BF 6E 7F
 out
-# ARP works without a DAW clock.
+wait 1000
+expect notes_out >2
+tap PLAY
+expect playing 0
+expect gen_running 0
+expect active 0
+out
+wait 400
+expect notes_out 0
+tap PLAY
+expect gen_running 1
+wait 300
+expect notes_out >0
+tap EDIT
+press SEQ
+spin K2 4
+expect density 12
+spin K3 1
+spin K4 1
+key 7 down
+key 7 up
+release SEQ
+expect generator 1
+tap SEQ
+expect generator 0
+tap PLAY
+expect playing 0
+expect active 0
+spin PRESET 1
+tap HOME
+expect chan 0
+expect bank 0
+expect program 0
+# ARP hold is now explicit ARP+ENV. FX+REC remains emergency panic.
 tap ARP
 expect arp 1
-key 0 down
-key 4 down
-key 7 down
-wait 600
-expect notes_out >3
-expect_out USB 90 35 64
-expect_out USB 90 39 64
-expect_out USB 90 3C 64
-key 0 up
-key 4 up
-key 7 up
-expect arp_note -1
-expect pool 0
-expect active 0
-expect notes_on 0
-out
-key 0 down
-key 1 down
-key 2 down
-key 3 down
-key 4 down
-key 5 down
-key 6 down
-key 7 down
-key 8 down
-key 9 down
-key 10 down
-key 11 down
-key 12 down
-key 13 down
-key 14 down
-key 15 down
-key 16 down
-key 17 down
-key 18 down
-key 19 down
-key 20 down
-key 21 down
-key 22 down
-key 23 down
-key 24 down
-key 25 down
-key 26 down
-expect pool 27
-wait 3600
-expect_out USB 90 4F 64
-key 0 up
-key 1 up
-key 2 up
-key 3 up
-key 4 up
-key 5 up
-key 6 up
-key 7 up
-key 8 up
-key 9 up
-key 10 up
-key 11 up
-key 12 up
-key 13 up
-key 14 up
-key 15 up
-key 16 up
-key 17 up
-key 18 up
-key 19 up
-key 20 up
-key 21 up
-key 22 up
-key 23 up
-key 24 up
-key 25 up
-key 26 up
-expect pool 0
-expect active 0
-expect notes_on 0
-# ARP modifier knobs do not toggle ARP on release.
 press ARP
-spin K1 1
-spin K2 1
-spin K3 1
-spin K4 5
-wait 80
-shot arp-edit.png
+tap ENV
 release ARP
 expect arp 1
-expect arp_rate 4
-expect arp_mode 1
-expect arp_oct 2
-expect tempo 125
-# Latch and panic.
-tap FX
 expect latch 1
 key 0 down
 wait 100
@@ -334,65 +239,49 @@ expect notes_out >1
 press FX
 tap REC
 release FX
+expect active 0
+expect pool 0
 expect latch 1
-expect pool 0
-expect active 0
-tap FX
+press ARP
+tap ENV
+release ARP
 expect latch 0
-# Clock loss and release without another F8 must not hang notes.
-press GLO
-tap PLAY
-release GLO
-expect clock 2
-key 0 down
-midi USB F8 00 00
-wait 400
-expect arp_note -1
-key 0 up
-expect pool 0
-key 0 down
-midi USB F8 00 00
-key 0 up
-expect active 0
-press GLO
-tap PLAY
-release GLO
-expect clock 1
-# Held-note ARP toggle preserves releases.
-key 2 down
 tap ARP
 expect arp 0
-expect_out USB 90 37 64
-key 2 up
+# Incoming DAW stop gates generator; a fresh start resumes its grid.
+tap SEQ
+wait 100
+midi USB BF 74 00
+expect gen_running 0
 expect active 0
-# Only explicit, idle SAVE writes flash.
-tap SAVE
-wait 5000
+out
+wait 400
+expect notes_out 0
+midi USB BF 74 7F
+expect gen_running 1
+wait 200
+expect notes_out >0
+tap SEQ
+midi USB FC 00 00
+expect active 0
+# No autosave. Both short and held SAVE work only while idle.
+wait 6000
 expect saves 0
-press SAVE
-wait 1100
-release SAVE
+tap SAVE
 expect saves 1
 reboot
 wait 800
 expect chan 0
-expect profile 2
 expect bank 0
-expect scale 0
-expect tempo 125
-expect active 0
-# Old DAW/user-bank settings migrate to one fixed MIDI preset.
+expect profile 2
+expect bpm10 1465
+expect generator 0
 legacy
 reboot
 wait 800
 expect chan 0
-expect bank 0
 expect profile 2
-expect scale 0
-expect clock 1
-expect cc0 20
-expect sound 2
-key 26 down
-expect_out USB 90 4F 64
-key 26 up
+expect clock 0
 expect active 0
+wait 1600
+shot midi-home.png

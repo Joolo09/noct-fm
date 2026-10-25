@@ -9,6 +9,8 @@ import transport
 
 _active = True
 _sent = {}
+_tempo_high = None
+_tempo_sent = None
 
 
 def _send(cc, value):
@@ -19,6 +21,7 @@ def _send(cc, value):
 
 
 def _feedback():
+    global _tempo_sent
     if not _active:
         return
     track = mixer.trackNumber()
@@ -30,10 +33,19 @@ def _feedback():
         _send(23, round(channels.getChannelVolume(channel) * 127))
     _send(116, 127 if transport.isPlaying() else 0)
     _send(117, 127 if transport.isRecording() else 0)
+    _send(113, 127 if mixer.isTrackSlotsEnabled(track) else 0)
+    bpm10 = max(200, min(9990, round(mixer.getCurrentTempo() * 10)))
+    if device.isAssigned() and _tempo_sent != bpm10:
+        # Always send the pair together, even when the high byte is unchanged.
+        device.midiOutMsg(0xBF | (114 << 8) | ((bpm10 >> 7) << 16))
+        device.midiOutMsg(0xBF | (115 << 8) | ((bpm10 & 127) << 16))
+        _tempo_sent = bpm10
 
 
 def OnInit():
+    global _tempo_sent
     _sent.clear()
+    _tempo_sent = None
     _feedback()
 
 
@@ -46,13 +58,14 @@ def OnIdle():
 
 
 def OnMidiMsg(event):
-    global _active
+    global _active, _tempo_high, _tempo_sent
     if event.status != 0xBF:
         return
     cc, value = event.data1, event.data2
     if cc == 119:
         _active = value in (0, 2)  # 2: one MIDI preset for both DAWs
         _sent.clear()
+        _tempo_sent = None
         event.handled = True
         _feedback()
         return
@@ -71,6 +84,18 @@ def OnMidiMsg(event):
             channels.setChannelVolume(channel, value / 127.0)
     elif cc == 7:
         mixer.setTrackVolume(0, value / 127.0)
+    elif cc == 113:
+        if value:
+            mixer.enableTrackSlots(track)
+    elif cc == 114:
+        _tempo_high = value
+    elif cc == 115:
+        if _tempo_high is not None:
+            bpm10 = (_tempo_high << 7) | value
+            _tempo_high = None
+            if 200 <= bpm10 <= 9990:
+                mixer.setCurrentTempo(bpm10 / 10.0)
+                _tempo_sent = None
     elif cc in (110, 111, 112):
         if value:
             {110: transport.start, 111: transport.stop, 112: transport.record}[cc]()

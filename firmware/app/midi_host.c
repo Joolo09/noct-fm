@@ -21,14 +21,21 @@ int app_expect(const char *what,int *got)
     else if(!strcmp(what,"sound"))n=proj.sound;
     else if(!strcmp(what,"octave"))n=proj.octave;
     else if(!strcmp(what,"tempo"))n=proj.tempo;
+    else if(!strcmp(what,"bpm10"))n=proj.bpm10;
+    else if(!strcmp(what,"chords"))n=CHORD_ON;
+    else if(!strcmp(what,"chord_type"))n=CHORD_TYPE;
+    else if(!strcmp(what,"generator"))n=generator.enabled;
+    else if(!strcmp(what,"gen_running"))n=generator.running;
+    else if(!strcmp(what,"gen_step"))n=generator.step;
+    else if(!strcmp(what,"fx"))n=ui.fx_on;
+    else if(!strcmp(what,"density"))n=GEN_DENSITY;
     else if(!strcmp(what,"clock"))n=proj.clock;
     else if(!strcmp(what,"arp"))n=proj.arp_on;
     else if(!strcmp(what,"latch"))n=proj.arp_latch;
     else if(!strcmp(what,"arp_note"))n=eng_arp_note();
     else if(!strcmp(what,"pool"))n=arp_engine.count;
     else if(!strcmp(what,"active")){
-        int i;for(i=0;i<128;i++)n+=ui.note_refs[i]!=0;
-        n+=arp_engine.note!=255u;
+        int i;for(i=0;i<128;i++)n+=note_owners[i]!=0;
     }
     else if(!strcmp(what,"arp_mode"))n=proj.arp_mode;
     else if(!strcmp(what,"arp_rate"))n=proj.arp_rate;

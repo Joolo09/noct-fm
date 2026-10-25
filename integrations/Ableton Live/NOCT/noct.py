@@ -12,11 +12,13 @@ class Noct(ControlSurface):
         super(Noct, self).__init__(c_instance)
         self._active = True
         self._sent = {}
+        self._tempo_high = None
+        self._tempo_sent = None
         self._noct_controls = []
         self._noct_callbacks = []
         with self.component_guard():
-            for cc in [7, 20, 21, 22, 23, 110, 111, 112, 119]:
-                control = (ButtonElement(True, MIDI_CC_TYPE, 15, cc) if cc >= 110 else
+            for cc in [7, 20, 21, 22, 23, 110, 111, 112, 113, 114, 115, 119]:
+                control = (ButtonElement(True, MIDI_CC_TYPE, 15, cc) if cc in (110,111,112,113,119) else
                            EncoderElement(MIDI_CC_TYPE, 15, cc, Live.MidiMap.MapMode.absolute))
                 callback = lambda value, number=cc: self._on_cc(number, value)
                 control.add_value_listener(callback)
@@ -41,6 +43,7 @@ class Noct(ControlSurface):
         if cc == 119:
             self._active = value in (1, 2)
             self._sent.clear()
+            self._tempo_sent = None
             self._feedback()
             return
         if not self._active:
@@ -51,6 +54,22 @@ class Noct(ControlSurface):
             self.song().stop_playing()
         elif cc == 112 and value:
             self.song().record_mode = not self.song().record_mode
+        elif cc == 113:
+            selected = self.song().view.selected_track.view.selected_device
+            if value and selected is not None and len(selected.parameters):
+                switch = selected.parameters[0]
+                if switch.is_enabled:
+                    switch.value = switch.min if switch.value > switch.min else switch.max
+            self._sent.pop(113, None)
+        elif cc == 114:
+            self._tempo_high = value
+        elif cc == 115:
+            if self._tempo_high is not None:
+                bpm10 = (self._tempo_high << 7) | value
+                self._tempo_high = None
+                if 200 <= bpm10 <= 9990:
+                    self.song().tempo = bpm10 / 10.0
+                    self._tempo_sent = None
         else:
             parameter = self._parameter(cc)
             if parameter is not None and parameter.is_enabled:
@@ -75,6 +94,14 @@ class Noct(ControlSurface):
             self._send_value(cc, value)
         self._send_value(116, 127 if self.song().is_playing else 0)
         self._send_value(117, 127 if self.song().record_mode else 0)
+        selected = self.song().view.selected_track.view.selected_device
+        active = selected is not None and len(selected.parameters) and selected.parameters[0].value > selected.parameters[0].min
+        self._send_value(113, 127 if active else 0)
+        bpm10 = max(200, min(9990, round(self.song().tempo * 10)))
+        if self._tempo_sent != bpm10:
+            self._send_midi((0xBF, 114, bpm10 >> 7))
+            self._send_midi((0xBF, 115, bpm10 & 127))
+            self._tempo_sent = bpm10
 
     def disconnect(self):
         self._unregister_timer_callback(self._feedback)

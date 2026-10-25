@@ -4,17 +4,50 @@
  */
 static const uint8_t RATE_TICKS[NRATE] = {24,12,8,6,4,3};
 static struct {
-    uint8_t refs[128], order[27], count, note, gate, channel;
+    uint8_t refs[128], order[128], count, note, gate, channel;
     uint32_t phase, ticks, last_clock, gate_ms, random, position;
     uint8_t mod, mod_target, mod_wait;
+    uint8_t have_clock, arp_paused, remote_running, transport_known, daw_tempo_valid;
+    uint32_t beat_start, clock_pulses;
 } arp_engine;
+static struct {
+    uint8_t enabled,running,notes[MAX_VOICING],count,gate,pattern[16],step;
+    uint32_t seed;
+} generator;
+static void generator_off(void)
+{int i;for(i=0;i<generator.count;i++)bus_off(generator.notes[i]);generator.count=generator.gate=0;}
+static uint32_t music_random(uint32_t *state)
+{*state^=*state<<13;*state^=*state>>17;*state^=*state<<5;return *state;}
+static void generator_regenerate(void)
+{int i;for(i=0;i<16;i++)generator.pattern[i]=(uint8_t)(music_random(&generator.seed)%21u);}
+static void generator_step(void)
+{
+    static const uint8_t scales[3][7]={{0,2,4,5,7,9,11},{0,2,3,5,7,8,10},{0,3,5,7,10,0,0}};
+    int i,len=GEN_SCALE==2?5:7,degree=generator.pattern[generator.step]%((int)GEN_OCTAVES*len);
+    int root=(int)GEN_ROOT+12*proj.octave+12*(degree/len)+scales[GEN_SCALE][degree%len];
+    generator_off();
+    if(((int)generator.step*GEN_DENSITY)%16<GEN_DENSITY){
+        generator.count=(uint8_t)note_voicing(root,generator.notes);
+        for(i=0;i<generator.count;i++)bus_on(generator.notes[i],proj.vel);
+        generator.gate=(uint8_t)((RATE_TICKS[proj.arp_rate]*GEN_GATE)/100u);
+        if(!generator.gate)generator.gate=1;
+    }
+    generator.step=(uint8_t)((generator.step+1)%16);
+}
+static void engine_tempo(uint32_t value)
+{
+    proj.bpm10=(uint16_t)clamp((int32_t)value,200,9990);
+    proj.tempo=(uint8_t)clamp((proj.bpm10+5)/10,40,240);
+}
+static int clock_external(void)
+{return proj.clock==CLK_EXT || (proj.clock==CLK_AUTO && arp_engine.have_clock && plat_ms()-arp_engine.last_clock<500u);}
 
 static void eng_send(uint32_t st, uint32_t a, uint32_t b)
 { ctl_send((st >> 4) | st << 8 | a << 16 | b << 24, TO_USB | TO_BLE); }
 static void arp_off(void)
 {
     if (arp_engine.note != 255u) {
-        eng_send(0x80u | arp_engine.channel, arp_engine.note,0);
+        bus_off(arp_engine.note);
         arp_engine.note=255u;
     }
     arp_engine.gate=0;
@@ -27,18 +60,22 @@ static int arp_held(void)
 }
 static void arp_step(void)
 {
-    uint8_t sorted[27], sequence[81];
+    uint8_t sorted[128], sequence[128];uint32_t seen[4]={0,0,0,0};
     int i,j,o,n=0,index=0;
     uint32_t f=plat_lock();
     arp_off();
-    if(!proj.arp_on || !arp_engine.count){plat_unlock(f);return;}
+    if(!proj.arp_on || !arp_engine.count || arp_engine.arp_paused){plat_unlock(f);return;}
     for(i=0;i<arp_engine.count;i++)sorted[i]=arp_engine.order[i];
     if(proj.arp_mode!=ARP_PLAYED)
         for(i=1;i<arp_engine.count;i++)for(j=i;j>0 && sorted[j-1]>sorted[j];j--){
             uint8_t t=sorted[j];sorted[j]=sorted[j-1];sorted[j-1]=t;
         }
-    for(o=0;o<proj.arp_oct;o++)for(i=0;i<arp_engine.count;i++)
-        if(sorted[i]+12*o<=127)sequence[n++]=(uint8_t)(sorted[i]+12*o);
+    for(o=0;o<proj.arp_oct;o++)for(i=0;i<arp_engine.count;i++){
+        int pitch=sorted[i]+12*o;
+        if(pitch<=127 && !(seen[pitch>>5]>>(pitch&31)&1u)){
+            sequence[n++]=(uint8_t)pitch;seen[pitch>>5]|=1u<<(pitch&31);
+        }
+    }
     if(n){
         uint32_t p=arp_engine.position;
         if(proj.arp_mode==ARP_DOWN)index=n-1-(int)(p%(uint32_t)n);
@@ -56,14 +93,16 @@ static void arp_step(void)
         arp_engine.channel=proj.chan;
         arp_engine.gate=(uint8_t)(RATE_TICKS[proj.arp_rate]/2u);
         arp_engine.gate_ms=plat_ms();
-        eng_send(0x90u|proj.chan,sequence[index],proj.vel);
+        bus_on(sequence[index],proj.vel);
     }
     plat_unlock(f);
 }
 static void arp_clock(void)
 {
     if(arp_engine.gate && !--arp_engine.gate)arp_off();
+    if(generator.gate && !--generator.gate)generator_off();
     if(proj.arp_on && arp_engine.count && arp_engine.ticks%RATE_TICKS[proj.arp_rate]==0u)arp_step();
+    if(generator.enabled && generator.running && arp_engine.ticks%RATE_TICKS[proj.arp_rate]==0u)generator_step();
     arp_engine.ticks++;
 }
 void arp_press(int note)
@@ -74,13 +113,14 @@ void arp_press(int note)
     if(proj.arp_latch && !arp_held()){
         arp_engine.count=0;first=1;
     }
-    if(arp_engine.refs[note]<27u)arp_engine.refs[note]++;
+    arp_engine.arp_paused=0;
+    if(arp_engine.refs[note]<128u)arp_engine.refs[note]++;
     for(i=0;i<arp_engine.count && arp_engine.order[i]!=note;i++);
-    if(i==arp_engine.count && arp_engine.count<27u)arp_engine.order[arp_engine.count++]=(uint8_t)note;
+    if(i==arp_engine.count && arp_engine.count<128u)arp_engine.order[arp_engine.count++]=(uint8_t)note;
     if(first){
-        arp_engine.position=0;arp_engine.ticks=0;arp_engine.phase=0;
+        arp_engine.position=0;
         /* Internal arp responds immediately; external waits for its first F8. */
-        if(proj.clock!=CLK_EXT){arp_step();arp_engine.ticks=1;}
+        if(!clock_external()){arp_step();}
     }
     plat_unlock(f);
 }
@@ -106,6 +146,7 @@ void engine_panic(void)
 {
     uint32_t f=plat_lock();
     arp_off();
+    generator_off();generator.running=0;
     memset(arp_engine.refs,0,sizeof arp_engine.refs);
     arp_engine.count=0;arp_engine.position=0;
     if(arp_engine.mod)eng_send(0xB0u|proj.chan,1,0);
@@ -123,27 +164,52 @@ void engine_tick(void)
         else arp_engine.mod--;
         eng_send(0xB0u|proj.chan,1,arp_engine.mod);arp_engine.mod_wait=5;
     }
-    if(proj.clock==CLK_EXT){
+    if(clock_external()){
         /* Missing external clocks must never leave the last gate hanging. */
-        if(arp_engine.note!=255u && plat_ms()-arp_engine.last_clock>250u)arp_off();
+        if(plat_ms()-arp_engine.last_clock>500u){arp_off();generator_off();}
         return;
     }
-    arp_engine.phase+=proj.tempo*24u;
-    if(arp_engine.phase>=60000u){arp_engine.phase-=60000u;arp_clock();}
+    arp_engine.phase+=proj.bpm10*24u;
+    if(arp_engine.phase>=600000u){arp_engine.phase-=600000u;arp_clock();}
+}
+static void engine_transport(int on,int restart)
+{
+    uint32_t f=plat_lock();
+    arp_engine.transport_known=1;arp_engine.remote_running=(uint8_t)!!on;
+    generator.running=(uint8_t)(on && generator.enabled);
+    if(!on){arp_off();generator_off();arp_engine.arp_paused=1;}
+    else {
+        arp_engine.arp_paused=0;
+        if(restart){arp_off();generator_off();arp_engine.ticks=arp_engine.position=arp_engine.phase=0;generator.step=0;}
+    }
+    plat_unlock(f);
 }
 void engine_midi_clock(uint32_t st)
 {
     uint32_t f=plat_lock();
-    if(proj.clock==CLK_EXT){
-        if(st==0xF8u){arp_engine.last_clock=plat_ms();arp_clock();}
-        if(st==0xFAu){arp_off();arp_engine.ticks=arp_engine.position=0;}
-        if(st==0xFCu)arp_off();
+    if(st==0xF8u && proj.clock!=CLK_INT){
+        uint32_t now=plat_ms();
+        if(!arp_engine.have_clock || now-arp_engine.last_clock>500u){arp_engine.clock_pulses=0;arp_engine.beat_start=now;}
+        arp_engine.have_clock=1;arp_engine.last_clock=now;
+        if(++arp_engine.clock_pulses>=25u){
+            uint32_t delta=now-arp_engine.beat_start;
+            if(!arp_engine.daw_tempo_valid && delta>=60u && delta<=3000u)engine_tempo(600000u/delta);
+            arp_engine.beat_start=now;arp_engine.clock_pulses=1;
+        }
+        arp_engine.phase=0;arp_clock();
     }
+    if(st==0xFAu)engine_transport(1,1);
+    if(st==0xFBu)engine_transport(1,0);
+    if(st==0xFCu)engine_transport(0,0);
     plat_unlock(f);
 }
-void engine_play(int on){(void)on;} /* Transport commands belong to the DAW; no local drums. */
+void engine_play(int on){engine_transport(on,on);}
 void engine_reset_tempo(void){arp_engine.phase=0;}
 static int eng_arp_note(void){return arp_engine.note==255u?-1:arp_engine.note;}
 static int eng_pool(uint8_t *out){int i;for(i=0;i<arp_engine.count;i++)out[i]=arp_engine.order[i];return arp_engine.count;}
 static void midi_engine_init(void)
-{memset(&arp_engine,0,sizeof arp_engine);arp_engine.note=255u;arp_engine.random=2463534242u;}
+{
+    memset(&arp_engine,0,sizeof arp_engine);arp_engine.note=255u;arp_engine.random=2463534242u;
+    memset(&generator,0,sizeof generator);generator.seed=978437u;generator_regenerate();
+    for(int i=0;i<128;i++)note_owners[i]=0;
+}

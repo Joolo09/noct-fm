@@ -33,7 +33,7 @@ static void noct_center(int x,int y,const felucca_font_t *f,const char *s,uint16
 {cv_text(x-text_w(f,s)/2,y,f,s,c);}
 static void noct_draw(void)
 {
-    uint32_t now=plat_ms();int k,arp_edit=ui.btn>>B_ARP&1u;char t[40],*p;
+    uint32_t now=plat_ms();int k,arp_edit=ui.btn>>B_ARP&1u,gen_edit=ui.btn>>B_SEQ&1u;char t[40],*p;
     if(now-ui.sig[0]<64u && ui.frame)return;
     ui.sig[0]=now;
     cv_begin(240,144,K_BG);
@@ -48,16 +48,25 @@ static void noct_draw(void)
     cv_band(24,120);noct_sky(now/80u);
     noct_logo(10,9,1,0);cv_text(32,12,&FONT_XS,"FL STUDIO",K_HOT);
     noct_logo(133,9,1,1);cv_text(160,12,&FONT_XS,"LIVE",K_MINT);
-    noct_center(120,36,&FONT_M,now<noct_transition?"NOCT MIDI":"CHROMATIC",K_TEXT);
+    const char *heading=ui.page==2?"GENERATOR":ui.page==3?"SYNC":CHORD_ON?"CHORDS":"CHROMATIC";
+    noct_center(120,36,&FONT_M,now<noct_transition?"NOCT MIDI":heading,K_TEXT);
     if(now<ui.msg_until)noct_center(120,65,&FONT_XS,ui.message,K_DIM);
     else {
+        if(ui.page==2){
+            p=put_s(t,GEN_SCALE==0?"MAJOR":GEN_SCALE==1?"MINOR":"PENTA");
+            p=put_s(p," / ");p=put_u(p,GEN_DENSITY);p=put_s(p," STEPS / C");put_u(p,GEN_ROOT);
+        }else if(ui.page==3)put_s(t,clock_external()?"MIDI CLOCK LOCKED":"DAW BPM / INTERNAL GRID");
+        else if(CHORD_ON)put_s(t,CHORD_NAME[CHORD_TYPE]);
+        else {
         p=put_s(t,proj.arp_on?"ARP ":"ARP OFF / ");
         if(proj.arp_on){p=put_s(p,ARP_NAME[proj.arp_mode]);p=put_s(p," ");p=put_s(p,RATE_NAME[proj.arp_rate]);}
         else p=put_s(p,"F3-G5");
         if(proj.arp_latch)put_s(p," HOLD");
+        }
         noct_center(120,65,&FONT_XS,t,proj.arp_on?K_MINT:K_DIM);
     }
-    put_u(put_s(t,proj.clock==CLK_EXT?"EXT / ":"INT / "),proj.tempo);
+    p=put_u(put_s(t,proj.clock==CLK_AUTO?"AUTO / ":proj.clock==CLK_EXT?"EXT / ":"INT / "),proj.bpm10/10u);
+    if(proj.bpm10%10u)put_u(put_s(p,"."),proj.bpm10%10u);
     cv_text(8,102,&FONT_XS,t,K_TEXT);
     p=put_s(t,"OCT ");if(proj.octave<0)p=put_s(p,"-");else p=put_s(p,"+");
     put_u(p,(uint32_t)(proj.octave<0?-proj.octave:proj.octave));
@@ -72,15 +81,22 @@ static void noct_draw(void)
             if(k==0)put_s(t,RATE_NAME[proj.arp_rate]);
             if(k==1)put_u(t,proj.arp_mode+1u);
             if(k==2)put_u(t,proj.arp_oct);
-            if(k==3)put_u(t,proj.tempo);
+            if(k==3)put_u(t,proj.bpm10/10u);
+        }else if(gen_edit){
+            static const char *const labels[4]={"RATE","DENS","SCALE","OCTS"};name=labels[k];
+            if(k==0)put_s(t,RATE_NAME[proj.arp_rate]);
+            if(k==1)put_u(t,GEN_DENSITY);
+            if(k==2)put_s(t,GEN_SCALE==0?"MAJ":GEN_SCALE==1?"MIN":"PENT");
+            if(k==3)put_u(t,GEN_OCTAVES);
         }else{put_u(put_s(t,"CC "),20u+(uint32_t)k);name=t;}
         noct_center(x+25,8,&FONT_XS,name,hot?K_MINT:K_DIM);
-        if(!arp_edit)put_u(t,(uint32_t)v);
-        noct_center(x+25,25,arp_edit && k==0?&FONT_S:&FONT_M,t,K_TEXT);
-        if(!arp_edit){cv_rect(x+6,57,38,3,K_LINE);cv_rect(x+6,57,38*v/127,3,K_HOT);}
+        if(!arp_edit && !gen_edit)put_u(t,(uint32_t)v);
+        noct_center(x+25,25,((arp_edit||gen_edit) && (k==0||(gen_edit&&k==2)))?&FONT_S:&FONT_M,t,K_TEXT);
+        if(!arp_edit && !gen_edit){cv_rect(x+6,57,38,3,K_LINE);cv_rect(x+6,57,38*v/127,3,K_HOT);}
     }
     cv_band(70,26);cv_rect(8,2,224,1,K_LINE);
-    cv_text(8,9,&FONT_XS,arp_edit?"HOLD ARP: EDIT":"ARP: ON/OFF",K_DIM);
+    if(generator.enabled){put_u(put_s(t,"GEN STEP "),generator.step+1u);cv_text(8,9,&FONT_XS,t,generator.running?K_MINT:K_DIM);}
+    else cv_text(8,9,&FONT_XS,arp_edit?"HOLD ARP: EDIT":gen_edit?"HOLD SEQ: EDIT":ui.fx_on?"FX ON / ARP":"FX BYPASS / ARP",K_DIM);
     cv_text(132,9,&FONT_XS,"SELECT: BPM",K_DIM);
     cv_blit(0,144);
 }

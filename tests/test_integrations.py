@@ -20,11 +20,17 @@ class FLTests(unittest.TestCase):
     def setUp(self):
         self.calls = []
         self.sent = []
+        self.tempo = 120.0
+        self.fx = True
         modules = {
             'channels': dict(selectedChannel=lambda: 2, getChannelVolume=lambda n: .5,
                              setChannelVolume=lambda *a: self.calls.append(('channel', a))),
             'device': dict(isAssigned=lambda: True, midiOutMsg=self.sent.append),
             'mixer': dict(trackNumber=lambda: 3, getTrackVolume=lambda n: .5,
+                          getCurrentTempo=lambda: self.tempo,
+                          setCurrentTempo=lambda value: setattr(self,'tempo',value),
+                          isTrackSlotsEnabled=lambda n: self.fx,
+                          enableTrackSlots=lambda n: setattr(self,'fx',not self.fx),
                           getTrackPan=lambda n: 0, getTrackStereoSep=lambda n: 0,
                           setTrackVolume=lambda *a: self.calls.append(('volume', a)),
                           setTrackPan=lambda *a: self.calls.append(('pan', a)),
@@ -60,6 +66,20 @@ class FLTests(unittest.TestCase):
     def test_manual_links_remain_available(self):
         for cc in range(24, 36):
             self.assertFalse(self.event(cc, 50).handled)
+
+    def test_tempo_and_fx(self):
+        self.event(114, 1405 >> 7)
+        self.event(115, 1405 & 127)
+        self.assertEqual(self.tempo, 140.5)
+        self.event(115, 0)  # incomplete pairs do not change BPM
+        self.assertEqual(self.tempo, 140.5)
+        self.event(113, 127)
+        self.assertFalse(self.fx)
+        self.tempo=155.2
+        self.script.OnIdle()
+        pairs=[((m>>8)&255,(m>>16)&127) for m in self.sent]
+        self.assertIn((114,1552>>7),pairs)
+        self.assertIn((115,1552&127),pairs)
 
     def test_unified_profile(self):
         self.event(119,2)
@@ -115,7 +135,7 @@ class LiveTests(unittest.TestCase):
             view=types.SimpleNamespace(selected_device=types.SimpleNamespace(
                 parameters=[Parameter() for _ in range(9)])))
         self.song = types.SimpleNamespace(view=types.SimpleNamespace(selected_track=track),
-            master_track=track, is_playing=False, record_mode=False)
+            master_track=track, is_playing=False, record_mode=False, tempo=120.0)
         self.song.start_playing = lambda: setattr(self.song, 'is_playing', True)
         self.song.stop_playing = lambda: setattr(self.song, 'is_playing', False)
         self.script = load('integrations/Ableton Live/NOCT/noct.py', 'live_noct_test').Noct(None)
@@ -158,6 +178,20 @@ class LiveTests(unittest.TestCase):
         p.min, p.max, p.is_quantized = 0, 7, True
         self.script._on_cc(20, 64)
         self.assertEqual(p.value, 4)
+
+    def test_tempo_and_fx(self):
+        self.script._on_cc(114,1405>>7)
+        self.script._on_cc(115,1405&127)
+        self.assertEqual(self.song.tempo,140.5)
+        self.script._on_cc(115,0)
+        self.assertEqual(self.song.tempo,140.5)
+        device=self.song.view.selected_track.view.selected_device
+        self.script._on_cc(113,127)
+        self.assertEqual(device.parameters[0].value,0)
+        self.song.tempo=155.2
+        self.script._feedback()
+        self.assertIn((0xBF,114,1552>>7),self.script.sent)
+        self.assertIn((0xBF,115,1552&127),self.script.sent)
 
     def test_unified_profile(self):
         self.script._on_cc(119,2)

@@ -4,6 +4,7 @@
  * the glue between fm1-base's contract (app.h) and Ctl's parts: the settings (project.c), the engine (engine.c), the
  * UI (ui.c) and the GM synth (dsp/gm.c, its own -O2 unit). */
 #include "project.c"
+#include "note_bus.c"
 #include "midi_engine.c"
 #include "midi_ui.c"
 
