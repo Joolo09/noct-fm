@@ -94,7 +94,10 @@ def OnMidiMsg(event):
             bpm10 = (_tempo_high << 7) | value
             _tempo_high = None
             if 200 <= bpm10 <= 9990:
-                mixer.setCurrentTempo(bpm10 / 10.0)
+                # Older FL versions can still receive MIDI; do not stop the script
+                # merely because bidirectional tempo requires API 38.
+                if hasattr(mixer, 'setCurrentTempo'):
+                    mixer.setCurrentTempo(bpm10 / 10.0)
                 _tempo_sent = None
     elif cc in (110, 111, 112):
         if value:

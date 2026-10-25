@@ -54,7 +54,7 @@ static void noct_draw(void)
     else {
         if(ui.page==2){
             p=put_s(t,GEN_SCALE==0?"MAJOR":GEN_SCALE==1?"MINOR":"PENTA");
-            p=put_s(p," / ");p=put_u(p,GEN_DENSITY);p=put_s(p," STEPS / C");put_u(p,GEN_ROOT);
+            p=put_s(p," / ");p=put_u(p,GEN_DENSITY);p=put_s(p," STEPS / ROOT ");put_u(p,GEN_ROOT);
         }else if(ui.page==3)put_s(t,clock_external()?"MIDI CLOCK LOCKED":"DAW BPM / INTERNAL GRID");
         else if(CHORD_ON)put_s(t,CHORD_NAME[CHORD_TYPE]);
         else {
