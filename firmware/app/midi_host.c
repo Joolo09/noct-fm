@@ -1,4 +1,15 @@
 /* SPDX-License-Identifier: MPL-2.0 */
+static uint8_t simulated_clock;
+static uint32_t simulated_phase;
+void app_host_sim_tick(void)
+{
+    if(!simulated_clock)return;
+    simulated_phase+=proj.bpm10*24u;
+    if(simulated_phase>=600000u){
+        simulated_phase-=600000u;
+        min_q[mi_w%MQ]=0xFu|0xF8u<<8;min_port[mi_w++%MQ]=PORT_USB;
+    }
+}
 static int out_count(int which)
 {
     uint32_t i;int n=0;
@@ -13,7 +24,12 @@ static int out_count(int which)
 int app_expect(const char *what,int *got)
 {
     int n=0;
-    if(!strcmp(what,"chan"))n=proj.chan;
+    if(!strcmp(what,"page"))n=ui.page;
+    else if(!strcmp(what,"root_note"))n=GEN_ROOT;
+    else if(!strcmp(what,"gen_scale"))n=GEN_SCALE;
+    else if(!strcmp(what,"gate"))n=GEN_GATE;
+    else if(!strcmp(what,"velocity"))n=proj.vel;
+    else if(!strcmp(what,"chan"))n=proj.chan;
     else if(!strcmp(what,"profile"))n=proj.rsv[0];
     else if(!strcmp(what,"bank"))n=proj.bank;
     else if(!strcmp(what,"scale"))n=proj.scale;
@@ -59,6 +75,17 @@ int app_expect(const char *what,int *got)
 int app_host_cmd(const char *cmd,const char *a,const char *b,const char *c,const char *d)
 {
     (void)a;(void)b;(void)c;(void)d;
+    if(!strcmp(cmd,"simclock")){
+        simulated_clock=(uint8_t)!!atoi(a);simulated_phase=0;return 1;
+    }
+    if(!strcmp(cmd,"snapshot")){
+        printf("@STATE {\"ms\":%u,\"page\":%u,\"playing\":%u,\"generator\":%u,\"running\":%u,\"mode\":%u,\"arp\":%u,\"chords\":%u,\"bpm\":%u,\"clock\":%u,\"pending\":%u,\"notes\":[",
+            now_ms,ui.page,ui.playing,generator.enabled,generator.running,proj.gen_mode,
+            proj.arp_on,CHORD_ON,proj.bpm10,proj.clock,!!generator.pending);
+        int comma=0;
+        for(int i=0;i<128;i++)if(note_owners[i]){printf("%s%d",comma?",":"",i);comma=1;}
+        printf("]}\n");return 1;
+    }
     if(!strcmp(cmd,"fixed")){proj.touch=0;touch_apply();return 1;}
     if(!strcmp(cmd,"legacy")){
         /* Seed the exact previous settings format, including dangerous routes. */
@@ -68,5 +95,5 @@ int app_host_cmd(const char *cmd,const char *a,const char *b,const char *c,const
     }
     return 0;
 }
-void app_host_reboot(void){midi_engine_init();}
+void app_host_reboot(void){simulated_clock=0;simulated_phase=0;midi_engine_init();}
 void app_speak_dump(void){ann_say("NOCT MIDI. Channel one. Chromatic. Four fixed controllers.",0,ANN_NOW);}

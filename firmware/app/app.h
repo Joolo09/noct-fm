@@ -123,6 +123,10 @@ void app_splash(void);
 #define APP_HOST_EXPECT
 int app_expect(const char *what, int *got);
 #define APP_HOST_CMD
+#ifdef PLAT_HOST
+#define APP_HOST_SIM_TICK
+void app_host_sim_tick(void);
+#endif
 int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, const char *d);
 #define APP_HOST_REBOOT
 void app_host_reboot(void);

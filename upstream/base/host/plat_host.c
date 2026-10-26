@@ -651,6 +651,9 @@ static void run_ms(uint32_t ms)
     uint32_t i, k;
     for (i = 0; i < ms; i++) {
         now_ms++;
+#ifdef APP_HOST_SIM_TICK
+        app_host_sim_tick();
+#endif
         ble_tick();
 #if FM1B_WIFI
         wifi_tick();
@@ -805,7 +808,9 @@ int main(int argc, char **argv)
         fprintf(stderr, "usage: %s SCRIPT [OUTDIR]\n", argv[0]);
         return 2;
     }
-    sc = fopen(argv[1], "r");
+    /* A persistent stdin session drives the interactive device emulator. */
+    setvbuf(stdout, NULL, _IONBF, 0);
+    sc = !strcmp(argv[1], "-") ? stdin : fopen(argv[1], "r");
     if (!sc) {
         perror(argv[1]);
         return 2;

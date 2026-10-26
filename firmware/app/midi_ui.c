@@ -2,7 +2,9 @@
  * NOCT 0.2: one MIDI preset, invariant keyboard routing, no background flash writes.
  * Uses CTL-1/fm1-base's key sensing and pixel renderer under MPL-2.0.
  */
-#define K_BG RGB(9,12,25)
+#define K_BG RGB(10,14,25)
+enum { PAGE_DAW, PAGE_CHORD, PAGE_GEN, PAGE_FEEL, PAGE_ARP, PAGE_SYNC, PAGE_COUNT };
+static const char *const PAGE_NAME[PAGE_COUNT]={"DAW","CHORDS","COMPOSE","RHYTHM","ARP","SYNC"};
 #define K_PANEL RGB(19,25,43)
 #define K_LINE RGB(39,48,70)
 #define K_DIM RGB(135,150,177)
@@ -21,7 +23,8 @@ static struct {
     int32_t master_raw;
     int16_t master_sent;
     char last[40],message[40];
-    uint32_t saves;
+    uint32_t saves,seq_t,arp_t;
+    uint8_t revoicing;
 } ui;
 static uint8_t noct_recording;
 static uint32_t noct_transition;
@@ -38,7 +41,7 @@ static void say(const char *a,const char *b)
     if(b && n<sizeof ui.message-1u)ui.message[n++]=' ';
     while(b && *b && n<sizeof ui.message-1u)ui.message[n++]=*b++;
     ui.message[n]=0;
-    ui.msg_until=plat_ms()+1500u;
+    ui.msg_until=plat_ms()+800u;
     if(ann_on())ann_say(ui.message,0,ANN_NOW);
 }
 void ui_say(const char *a,const char *b){say(a,b);}
@@ -58,7 +61,7 @@ static void key_down(int k,uint32_t vel)
 {
     int n=53+k+12*proj.octave,i;
     if(k<0||k>=NKEYS||n<0||n>127)return;
-    if(plat_buttons()>>B_SEQ&1u){GEN_ROOT=(uint8_t)clamp(53+k,0,115);ui.seq_used=1;ui.dirty=1;generator_regenerate();return;}
+    if(!ui.revoicing && (plat_buttons()>>B_SEQ&1u)){GEN_ROOT=(uint8_t)clamp(53+k,0,115);ui.seq_used=1;ui.dirty=1;generator_regenerate();return;}
     key_up(k);
     ui.down|=1u<<k;ui.key_vel[k]=(uint8_t)vel;
     ui.key_count[k]=(uint8_t)note_voicing(n,ui.key_note[k]);
@@ -82,7 +85,9 @@ static void revoice(int octave_delta,int arp_toggle)
     all_keys_up();arp_clear();
     proj.octave=(int8_t)clamp(proj.octave+octave_delta,-3,3);
     if(arp_toggle)proj.arp_on=(uint8_t)!proj.arp_on;
+    ui.revoicing=1;
     for(i=0;i<NKEYS;i++)if(held>>i&1u)key_down(i,velocity[i]);
+    ui.revoicing=0;
     if(octave_delta)generator_regenerate();
     ui.dirty=1;
 }
@@ -162,19 +167,19 @@ static void local_tempo(int delta)
     noct_control(114,proj.bpm10>>7);noct_control(115,proj.bpm10&127u);ui.dirty=1;
 }
 static void cycle_clock(void)
-{proj.clock=(uint8_t)((proj.clock+1)%NCLK);revoice(0,0);say("SYNC",proj.clock==CLK_AUTO?"AUTO":proj.clock==CLK_EXT?"EXTERNAL":"INTERNAL");ui.page=3;}
+{proj.clock=(uint8_t)((proj.clock+1)%NCLK);revoice(0,0);say("SYNC",proj.clock==CLK_AUTO?"AUTO":proj.clock==CLK_EXT?"EXTERNAL":"INTERNAL");ui.page=PAGE_SYNC;}
 static void button_down(int b)
 {
     switch(b){
-    case B_ARP:ui.arp_used=0;break;
-    case B_SEQ:ui.seq_used=0;break;
+    case B_ARP:ui.arp_used=0;ui.arp_t=plat_ms();ui.page=PAGE_ARP;break;
+    case B_SEQ:ui.seq_used=0;ui.seq_t=plat_ms();ui.page=PAGE_GEN;break;
     case B_GLO:ui.glo_used=0;break;
     case B_FX:ui.fx_used=0;break;
     case B_SAVE:ui.save_t=plat_ms();ui.save_done=0;break;
     case B_PLAY:
         if(ui.btn>>B_GLO&1u){
             ui.glo_used=1;cycle_clock();
-        }else{ui.playing=!ui.playing;engine_play(ui.playing);noct_control(ui.playing?110:111,127);if(!ui.playing && ui.sustain){ui.sustain=0;play(0xB0u,64,0);}}
+        }else{ui.playing=(uint8_t)(!(ui.playing || (generator.preview && generator.running)));engine_play(ui.playing);noct_control(ui.playing?110:111,127);if(!ui.playing && ui.sustain){ui.sustain=0;play(0xB0u,64,0);}}
         break;
     case B_REC:
         if(ui.btn>>B_FX&1u){ui.fx_used=1;panic();}
@@ -194,7 +199,7 @@ static void button_down(int b)
 static void button_up(int b)
 {
     switch(b){
-    case B_ARP:if(!ui.arp_used){revoice(0,1);say("ARPEGGIATOR",proj.arp_on?"ON":"OFF");}break;
+    case B_ARP:if(!ui.arp_used && plat_ms()-ui.arp_t<350u){revoice(0,1);say("ARPEGGIATOR",proj.arp_on?"ON":"OFF");}break;
     case B_FX:if(!ui.fx_used){noct_control(113,127);ui.fx_on=!ui.fx_on;say("DAW FX",ui.fx_on?"ON":"BYPASS");}break;
     case B_ENV:if(ui.sustain){ui.sustain=0;play(0xB0u,64,0);}break;
     case B_LFO:engine_mod(0);break;
@@ -202,52 +207,75 @@ static void button_up(int b)
     case B_SEL:CHORD_ON=!CHORD_ON;revoice(0,0);ui.page=1;say("CHORDS",CHORD_ON?CHORD_NAME[CHORD_TYPE]:"OFF");break;
     case B_HOME:ui.page=0;say("NOCT MIDI","ONE FIXED PRESET");break;
     case B_SEQ:
-        if(!ui.seq_used){
+        if(!ui.seq_used && plat_ms()-ui.seq_t<350u){
             generator_toggle();ui.page=2;
             say("GENERATOR",generator.enabled?"ON":"OFF");
         }break;
     case B_EDIT:music_random(&proj.gen_seed);proj.gen_progression=(uint8_t)((proj.gen_progression+1)%4);generator_regenerate();ui.dirty=1;ui.page=2;say("NEW PHRASE",generator.running?"NEXT BAR":"READY");break;
-    case B_GLO:if(!ui.glo_used)cycle_clock();break;
+    case B_GLO:if(!ui.glo_used){ui.page=PAGE_SYNC;say("SYNC SETTINGS",0);}break;
     default:break;
     }
+}
+/* Every visible page has four direct parameters. HOME always restores DAW CCs. */
+static void page_knob(int page,int i,int delta)
+{
+    int compose=0,voice=0;uint32_t f=plat_lock();
+    if(page==PAGE_CHORD){
+        if(i==0){CHORD_TYPE=(uint8_t)clamp(CHORD_TYPE+delta,0,5);voice=1;}
+        if(i==1)proj.vel=(uint8_t)clamp(proj.vel+delta,1,127);
+        if(i==2){proj.touch=(uint8_t)clamp(proj.touch+delta,0,1);}
+        if(i==3){plat_unlock(f);revoice(delta,0);return;}
+    }else if(page==PAGE_GEN){
+        if(i==0)proj.gen_mode=(uint8_t)clamp(proj.gen_mode+delta,0,2);
+        if(i==1)GEN_SCALE=(uint8_t)clamp(GEN_SCALE+delta,0,2);
+        if(i==2)GEN_ROOT=(uint8_t)clamp(GEN_ROOT+delta,24,96);
+        if(i==3)proj.gen_progression=(uint8_t)clamp(proj.gen_progression+delta,0,3);
+        compose=1;
+    }else if(page==PAGE_FEEL){
+        if(i==0)GEN_DENSITY=(uint8_t)clamp(GEN_DENSITY+delta,0,16);
+        if(i==1)GEN_GATE=(uint8_t)clamp(GEN_GATE+delta,10,100);
+        if(i==2)GEN_OCTAVES=(uint8_t)clamp(GEN_OCTAVES+delta,1,3);
+        if(i==3)proj.vel=(uint8_t)clamp(proj.vel+delta,1,127);
+        compose=1;
+    }else if(page==PAGE_ARP){
+        if(i==0)proj.arp_rate=(uint8_t)clamp(proj.arp_rate+delta,0,NRATE-1);
+        if(i==1)proj.arp_mode=(uint8_t)clamp(proj.arp_mode+delta,0,NARP-1);
+        if(i==2)proj.arp_oct=(uint8_t)clamp(proj.arp_oct+delta,1,3);
+        if(i==3){plat_unlock(f);local_tempo(delta*10);return;}
+    }else if(page==PAGE_SYNC){
+        if(i==0)proj.clock=(uint8_t)clamp(proj.clock+delta,0,NCLK-1);
+        if(i==1){plat_unlock(f);local_tempo(delta*10);return;}
+        if(i==2)proj.vel=(uint8_t)clamp(proj.vel+delta,1,127);
+        if(i==3)proj.touch=(uint8_t)clamp(proj.touch+delta,0,1);
+    }
+    plat_unlock(f);
+    if(voice && CHORD_ON)revoice(0,0);
+    if((page==PAGE_CHORD && i==2)||(page==PAGE_SYNC && i==3))touch_apply();
+    if(compose)generator_regenerate();
+    ui.dirty=1;ui.msg_until=0;
 }
 static void input(void)
 {
     uint32_t btn=plat_buttons(),changed=btn^ui.btn;int i;int32_t e;
-    input_keys();ui.btn=btn;
+    ui.btn=btn;
     for(i=0;i<NB;i++)if(changed>>i&1u){if(btn>>i&1u)button_down(i);else button_up(i);}
-    midi_in();
+    input_keys();midi_in();
     for(i=0;i<NKNOBS;i++)if((e=plat_enc(EN_K1+i))!=0){
-        if(btn>>B_ARP&1u){
-            uint32_t f=plat_lock();ui.arp_used=1;
-            if(i==0)proj.arp_rate=(uint8_t)clamp(proj.arp_rate+e,0,NRATE-1);
-            if(i==1)proj.arp_mode=(uint8_t)clamp(proj.arp_mode+e,0,NARP-1);
-            if(i==2)proj.arp_oct=(uint8_t)clamp(proj.arp_oct+e,1,3);
-            if(i==3)engine_tempo((uint32_t)clamp((int32_t)proj.bpm10+e*10,200,9990));
-            plat_unlock(f);ui.dirty=1;say("ARP SETTINGS",0);
-            if(i==3){noct_control(114,proj.bpm10>>7);noct_control(115,proj.bpm10&127u);}
-        }else if(btn>>B_SEQ&1u){
-            uint32_t f=plat_lock();ui.seq_used=1;
-            if(i==0)proj.gen_mode=(uint8_t)clamp(proj.gen_mode+e,0,2);
-            if(i==1 && proj.gen_mode==1)proj.gen_progression=(uint8_t)clamp(proj.gen_progression+e,0,3);
-            if(i==1 && proj.gen_mode!=1)GEN_DENSITY=(uint8_t)clamp(GEN_DENSITY+e,0,16);
-            if(i==2)GEN_OCTAVES=(uint8_t)clamp(GEN_OCTAVES+e,1,3);
-            if(i==3)GEN_GATE=(uint8_t)clamp(GEN_GATE+e,10,100);
-            plat_unlock(f);generator_regenerate();ui.dirty=1;ui.page=2;say("GENERATOR",GEN_MODE_NAME[proj.gen_mode]);
-        }else{
+        if(btn>>B_ARP&1u)ui.arp_used=1;
+        if(btn>>B_SEQ&1u)ui.seq_used=1;
+        if(ui.page!=PAGE_DAW)page_knob(ui.page,i,e);
+        else{
             int value=clamp(proj.val[0][i]+e,0,127);
             if(value!=proj.val[0][i]){proj.val[0][i]=(uint8_t)value;noct_control(20u+(uint32_t)i,(uint32_t)value);}
         }
-        ui.touched=(int8_t)i;ui.touch_until=plat_ms()+1000u;
+        ui.touched=(int8_t)i;ui.touch_until=plat_ms()+600u;
     }
     if((e=plat_enc(EN_SELECT))!=0)local_tempo(e*10);
     if((e=plat_enc(EN_ALGO))!=0){
-        uint32_t f=plat_lock();
-        if(CHORD_ON)CHORD_TYPE=(uint8_t)clamp(CHORD_TYPE+e,0,5);
-        else proj.arp_mode=(uint8_t)clamp(proj.arp_mode+e,0,NARP-1);
-        plat_unlock(f);if(CHORD_ON)revoice(0,0);ui.dirty=1;
+        if(ui.page==PAGE_DAW)ui.page=CHORD_ON?PAGE_CHORD:PAGE_ARP;
+        page_knob(ui.page,ui.page==PAGE_GEN?3:ui.page==PAGE_ARP?1:0,e);
     }
-    if((e=plat_enc(EN_PRESET))!=0){uint32_t f=plat_lock();GEN_SCALE=(uint8_t)clamp(GEN_SCALE+e,0,2);plat_unlock(f);generator_regenerate();ui.page=2;ui.dirty=1;}
+    if((e=plat_enc(EN_PRESET))!=0){ui.page=(uint8_t)clamp(ui.page+e,0,PAGE_COUNT-1);ui.msg_until=0;}
     ui.master_raw+=((int32_t)plat_master()-ui.master_raw)/4;
     i=clamp(ui.master_raw*127/4000,0,127);
     if(i!=ui.master_sent && (i-ui.master_sent>1||ui.master_sent-i>1||i==0||i==127)){
@@ -269,8 +297,8 @@ void ui_input_only(void){input();}
 void ui_frame(void)
 {
     input();noct_draw();
-    plat_lights((1u<<B_HOME)|(proj.arp_on?1u<<B_ARP:0u)|(ui.playing?LED_PLAY_GREEN:0u)|
+    plat_lights((ui.page==PAGE_DAW?1u<<B_HOME:0u)|(proj.arp_on?1u<<B_ARP:0u)|(ui.playing?LED_PLAY_GREEN:0u)|
         (noct_recording?1u<<B_REC:0u)|(ui.fx_on?1u<<B_FX:0u)|(CHORD_ON?1u<<B_SEL:0u)|
-        (generator.enabled?1u<<B_SEQ:0u),ui.down,ui.btn,0,1);
+        (generator.running?1u<<B_SEQ:0u),ui.down,ui.btn,0,1);
     ann_tick(plat_ms());ui.frame++;
 }

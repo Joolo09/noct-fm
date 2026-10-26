@@ -41,7 +41,8 @@ static void generator_regenerate(void)
     const uint8_t *progression=progressions[GEN_SCALE!=0][proj.gen_progression];
     uint32_t random=proj.gen_seed;int motif[16],previous[3],base,range=GEN_OCTAVES*7;
     base=(int)GEN_ROOT+12*proj.octave;
-    while(base<12)base+=12;while(base>72)base-=12;
+    while(base<12)base+=12;
+    while(base>72)base-=12;
     p->mode=proj.gen_mode;p->gate=GEN_GATE;
     motif[0]=0;
     for(int i=1;i<16;i++)motif[i]=clamp(motif[i-1]+(int)(music_random(&random)%3u)-1,-3,3);
@@ -82,7 +83,8 @@ static void generator_regenerate(void)
             }
             if(GEN_OCTAVES==3 && bar==2)d+=7;
             if(bar==3 && step>=12)d=step==12?1:0;
-            while(d<0)d+=7;while(d>=range)d-=7;
+            while(d<0)d+=7;
+            while(d>=range)d-=7;
             int pitch=base+scale_pitch(d,scale)+(p->mode==2?12:0);
             /* Pentatonic melody uses minor harmony but omits degrees 2 and 6. */
             if(GEN_SCALE==2 && (d%7==1 || d%7==5))pitch=base+scale_pitch(d-1,scale)+(p->mode==2?12:0);
@@ -90,7 +92,8 @@ static void generator_regenerate(void)
         }
     }
     f=plat_lock();generator.pending=(uint8_t)(dest+1);
-    if(!generator.running)generator_apply();plat_unlock(f);
+    if(!generator.running)generator_apply();
+    plat_unlock(f);
 }
 static void generator_step(void)
 {
@@ -106,7 +109,8 @@ static void generator_step(void)
     if(p->mode!=1 && (p->rhythm[step/16u]>>local&1u)){
         unsigned distance=1;
         while(distance<64u){unsigned next=(step+distance)%64u;
-            if(p->rhythm[next/16u]>>(next%16u)&1u)break;distance++;}
+            if(p->rhythm[next/16u]>>(next%16u)&1u)break;
+            distance++;}
         generator_melody_off();generator.melody_note=p->melody[step];
         bus_on(generator.melody_note,proj.vel);
         generator.melody_gate=(uint16_t)(distance*6u*p->gate/100u);
@@ -138,7 +142,8 @@ static void generator_clock(void)
 static void generator_toggle(void)
 {
     uint32_t f=plat_lock();
-    generator_off();generator.resume_chord=0;generator.enabled=!generator.enabled;
+    int start=!generator.enabled || !generator.running;
+    generator_off();generator.resume_chord=0;generator.enabled=(uint8_t)start;
     generator.running=generator.enabled;
     generator.preview=(uint8_t)(generator.enabled && !arp_engine.remote_running);
     generator.wait_bar=(uint8_t)(generator.enabled && arp_engine.remote_running && arp_engine.ticks%96u!=0);

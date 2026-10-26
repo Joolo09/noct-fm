@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['firmware/**', 'upstream/base/**', 'tools/prepare-site.py', 'build.sh', '.github/workflows/firmware.yml']
+    paths: ['firmware/**', 'emulator/**', 'tests/**', 'tools/emulator.py', 'upstream/base/**', 'tools/prepare-site.py', 'build.sh', '.github/workflows/firmware.yml']
 permissions:
   contents: read
 jobs:
@@ -26,6 +26,7 @@ jobs:
           mkdir -p test-output
           firmware/app/build/host/noct-usb_host tests/noct.ctl test-output
           python tests/test_midi_engine.py
+          python tests/test_ui_workflows.py
       - uses: actions/cache@v4
         id: toolchain
         with:
@@ -43,17 +44,17 @@ jobs:
             echo "AC79_SDK=$HOME/fw-AC79-mirror" >> "$GITHUB_ENV"
           fi
       - name: Build USB firmware and run image checks
-        run: sh build.sh --no-ble --release 0.4.0
+        run: sh build.sh --no-ble --release 0.5.0
       - uses: actions/upload-artifact@v4
         with:
           name: noct-usb-alpha
           path: |
-            firmware/app/build/noct-usb-0.4.0.fwsc
+            firmware/app/build/noct-usb-0.5.0.fwsc
             firmware/app/build/noct.bin
             firmware/app/build/loader/ota.bin
           if-no-files-found: error
       - name: Prepare installer bundle
-        run: python tools/prepare-site.py --firmware firmware/app/build/noct-usb-0.4.0.fwsc --output web-bundle
+        run: python tools/prepare-site.py --firmware firmware/app/build/noct-usb-0.5.0.fwsc --output web-bundle
       - uses: actions/upload-artifact@v4
         with:
           name: noct-installer-site

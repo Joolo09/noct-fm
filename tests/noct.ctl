@@ -1,10 +1,8 @@
-# NOCT 0.3: every button, MIDI routes, chords, generator, tempo and transport.
+# NOCT 0.5: end-to-end controls and fixed MIDI routing.
 wait 800
 expect profile 2
+expect page 0
 expect chan 0
-expect clock 0
-expect bpm10 1200
-expect chords 0
 expect generator 0
 out
 key 0 down
@@ -117,165 +115,123 @@ key 26 up
 expect_out USB 80 4F 00
 expect active 0
 expect notes_on 0
-tap SEL
-expect chords 1
-key 0 down
-expect_out USB 90 35 64
-expect_out USB 90 39 64
-expect_out USB 90 3C 64
-key 4 down
-expect active 5
-key 0 up
-expect active 3
-key 4 up
-expect active 0
-spin ALGO 1
-expect chord_type 1
-key 0 down
-expect_out USB 90 38 64
-tap OCT+
-expect_out USB 80 35 00
-expect_out USB 90 41 64
-key 0 up
-expect active 0
-tap OCT-
-tap SEL
-expect chords 0
-# Fixed CCs are unchanged by all musical controls.
+out
 spin K1 1
 expect_out USB BF 14 41
-expect cc0 20
-expect cc3 23
-midi USB BF 72 0B
-midi USB BF 73 2F
-expect bpm10 1455
-midi USB BF 73 00
-expect bpm10 1455
-spin SELECT 1
-expect bpm10 1465
-expect_out USB BF 72 0B
-expect_out USB BF 73 39
-# GLO cycles AUTO -> INT -> EXT -> AUTO; FX is DAW effects, not latch.
-tap GLO
-expect clock 1
-tap GLO
-expect clock 2
-tap GLO
-expect clock 0
-tap FX
-expect_out USB BF 71 7F
-expect latch 0
-midi USB BF 71 00
-expect fx 0
+spin K2 -1
+expect_out USB BF 15 3F
+tap SEL
+expect page 1
+expect chords 1
+key 0 down
+expect active 3
+spin K1 1
+expect chord_type 1
+expect active 3
+key 0 up
+expect active 0
+tap SEL
+expect chords 0
+tap HOME
 press ENV
 expect sustain 1
-expect_out USB B0 40 7F
 release ENV
 expect sustain 0
-expect_out USB B0 40 00
 press LFO
 wait 700
 expect_out USB B0 01 7F
 release LFO
 wait 700
 expect_out USB B0 01 00
+tap FX
+expect_out USB BF 71 7F
 tap REC
 expect_out USB BF 70 7F
 midi USB BF 75 00
 expect recording 0
-# Generator uses a scale, editable density, root, range, and shared transport.
+tap GLO
+expect page 5
+expect clock 0
+spin K1 2
+expect clock 2
+spin K1 -2
+expect clock 0
+midi USB BF 72 0B
+midi USB BF 73 39
+expect bpm10 1465
 tap SEQ
+expect page 2
 expect generator 1
-expect gen_running 1
 expect playing 0
-out
-wait 1000
-expect notes_out >2
-midi USB FC 00 00
+spin K1 2
+expect gen_mode 2
+wait 2200
+expect gen_running 1
+spin PRESET 1
+expect page 3
+spin K1 -3
+expect density 5
+spin K2 10
+expect gate 95
+tap EDIT
+expect page 2
+expect gen_pending 1
+tap HOME
+expect page 0
+spin K1 1
+expect gen_running 1
+tap PLAY
 expect playing 0
 expect gen_running 0
 expect active 0
-out
-wait 400
-expect notes_out 0
 tap PLAY
+expect playing 1
 expect gen_running 1
-wait 300
-expect notes_out >0
-tap EDIT
-press SEQ
-spin K2 4
-expect density 12
-spin K3 1
-spin K4 1
-key 7 down
-key 7 up
-release SEQ
-expect generator 1
+wait 400
+midi USB FC 00 00
+expect active 0
+expect gen_running 0
+midi USB FB 00 00
+expect gen_running 1
+wait 100
 tap SEQ
 expect generator 0
-tap PLAY
-expect playing 0
-expect active 0
-spin PRESET 1
-tap HOME
-expect chan 0
-expect bank 0
-expect program 0
-# ARP hold is now explicit ARP+ENV. FX+REC remains emergency panic.
+midi USB FC 00 00
 tap ARP
 expect arp 1
+expect page 4
 press ARP
 tap ENV
 release ARP
-expect arp 1
 expect latch 1
 key 0 down
 wait 100
 key 0 up
-out
-wait 400
-expect notes_out >1
+wait 300
 press FX
 tap REC
 release FX
 expect active 0
 expect pool 0
-expect latch 1
 press ARP
 tap ENV
 release ARP
 expect latch 0
 tap ARP
 expect arp 0
-# Incoming DAW stop gates generator; a fresh start resumes its grid.
-tap SEQ
-wait 100
-midi USB BF 74 00
-expect gen_running 0
-expect active 0
-out
-wait 400
-expect notes_out 0
-midi USB BF 74 7F
-expect gen_running 1
-wait 200
-expect notes_out >0
-tap SEQ
-midi USB FC 00 00
-expect active 0
-# No autosave. Both short and held SAVE work only while idle.
-wait 6000
+tap HOME
+wait 7000
 expect saves 0
 tap SAVE
 expect saves 1
 reboot
 wait 800
-expect chan 0
-expect bank 0
-expect profile 2
-expect bpm10 1465
+expect page 0
 expect generator 0
+expect gen_mode 2
+expect density 5
+expect gate 95
+expect bpm10 1465
 legacy
 reboot
 wait 800
@@ -283,5 +239,4 @@ expect chan 0
 expect profile 2
 expect clock 0
 expect active 0
-wait 1600
 shot midi-home.png

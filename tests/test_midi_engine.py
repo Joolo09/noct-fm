@@ -33,9 +33,9 @@ class MidiEngineTests(unittest.TestCase):
         commands=['wait 800','out']
         for i in range(350):
             key=i%27
-            commands += [f'key {key} down',f'spin K{i%4+1} {1 if i%2 else -1}',
+            commands += [f'key {key} down','tap HOME',f'spin K{i%4+1} {1 if i%2 else -1}',
                          f'midi USB BF {20+i%4:02X} {i%128:02X}',
-                         'spin PRESET 1','spin ALGO 1','spin SELECT 1',f'key {key} up']
+                         'spin PRESET 1','spin ALGO 1','spin SELECT 1','tap HOME',f'key {key} up']
             if i%20==0:commands+=['expect active 0','out']
         commands+=['wait 10000','expect saves 0','expect active 0','expect chan 0',
                    'expect bank 0','expect program 0','expect cc0 20','expect cc3 23']
@@ -68,7 +68,7 @@ class MidiEngineTests(unittest.TestCase):
     def test_generator_scales_and_stop_ownership(self):
         for mode,scale in enumerate(({0,2,4,5,7,9,11},{0,2,3,5,7,8,10},{0,3,5,7,10})):
             with self.subTest(scale=mode):
-                output=scenario(['wait 800',f'spin PRESET {mode}','out','tap SEQ',
+                output=scenario(['wait 800','spin PRESET 2',f'spin K2 {mode}','out','tap SEQ',
                                  'wait 2000','tap SEQ','expect active 0','out'])
                 notes=[int(n,16) for n in re.findall(r'out 90 ([0-9A-F]{2}) 64 -> USB',output)]
                 self.assertGreater(len(notes),3)
@@ -78,7 +78,7 @@ class MidiEngineTests(unittest.TestCase):
 
     def test_daw_bpm_clock_and_transport(self):
         commands=['wait 800','midi USB BF 72 0A','midi USB BF 73 7D','expect bpm10 1405',
-                  'tap GLO','tap GLO','expect clock 2','tap SEQ','out','wait 100','expect notes_out 0']
+                  'tap GLO','spin K1 2','expect clock 2','tap SEQ','out','wait 100','expect notes_out 0']
         commands+=['midi USB F8 00 00','wait 20']*48
         commands+=['expect bpm10 1405','expect notes_out >3','midi USB FC 00 00',
                    'expect active 0','out']
@@ -104,7 +104,7 @@ class MidiEngineTests(unittest.TestCase):
 
 
     def test_composer_chords_are_simultaneous_and_repeat_after_four_bars(self):
-        setup=['wait 800','tap GLO','tap GLO','press SEQ','spin K1 1','release SEQ',
+        setup=['wait 800','tap GLO','spin K1 2','press SEQ','spin K1 1','release SEQ',
                'expect gen_mode 1','tap SEQ','expect playing 0','out']
         output=scenario(setup+['midi USB F8 00 00','wait 18']*768+
                         ['tap SEQ','expect active 0','expect notes_on 0','out'])
@@ -122,7 +122,7 @@ class MidiEngineTests(unittest.TestCase):
     def test_composed_melody_repeats_and_is_independent_of_arp_rate(self):
         patterns=[]
         for rate in (-3,2):
-            output=scenario(['wait 800','tap GLO','tap GLO','press ARP',f'spin K1 {rate}',
+            output=scenario(['wait 800','tap GLO','spin K1 2','press ARP',f'spin K1 {rate}',
                 'release ARP','tap SEL','out','tap SEQ']+
                 ['midi USB F8 00 00','wait 18']*768+['tap SEQ','expect active 0','out'])
             notes=[int(n,16) for n in re.findall(r'out 90 ([0-9A-F]{2}) 64 -> USB',output)]
@@ -133,7 +133,7 @@ class MidiEngineTests(unittest.TestCase):
         self.assertEqual(*patterns)
 
     def test_changes_are_queued_without_cutting_chords_or_resetting_transport(self):
-        scenario(['wait 800','tap GLO','tap GLO','press SEQ','spin K1 1','release SEQ',
+        scenario(['wait 800','tap GLO','spin K1 2','press SEQ','spin K1 1','release SEQ',
                   'tap SEQ','out']+['midi USB F8 00 00']*24+
                  ['expect gen_cursor 24','expect active 3','out','tap EDIT',
                   'expect gen_pending 1','expect gen_cursor 24','expect active 3',
@@ -143,7 +143,7 @@ class MidiEngineTests(unittest.TestCase):
                   'expect gen_cursor 97','tap SEQ','expect active 0'])
 
     def test_both_mode_polyphony_and_root_modifier(self):
-        scenario(['wait 800','tap GLO','tap GLO','press SEQ','spin K1 2',
+        scenario(['wait 800','tap GLO','spin K1 2','press SEQ','spin K1 2',
                   'key 7 down','key 7 up','expect active 0','release SEQ',
                   'tap SEQ','out','midi USB F8 00 00','expect active 4',
                   'expect notes_out 4','midi USB FC 00 00','expect active 0',
@@ -160,7 +160,7 @@ class MidiEngineTests(unittest.TestCase):
                   'midi USB FC 00 00','expect active 0'])
 
     def test_saved_composition_is_reproducible(self):
-        setup=['wait 800','tap GLO','tap GLO','tap EDIT','press SEQ',
+        setup=['wait 800','tap GLO','spin K1 2','tap EDIT','press SEQ',
                'spin K1 2','spin K3 1','release SEQ']
         patterns=[]
         for reboot in (False,True):
@@ -173,7 +173,7 @@ class MidiEngineTests(unittest.TestCase):
 
 
     def test_melody_has_phrased_rhythm_instead_of_constant_arp_pulses(self):
-        output=scenario(['wait 800','tap GLO','tap GLO','tap SEQ']+
+        output=scenario(['wait 800','tap GLO','spin K1 2','tap SEQ']+
                         ['midi USB F8 00 00','wait 18']*384+['tap SEQ'],midi_log=True)
         times=[int(t) for t in re.findall(r'(\d+) ms: 90 [0-9A-F]{2} 64 -> USB',output)]
         self.assertEqual(len(times),32)
