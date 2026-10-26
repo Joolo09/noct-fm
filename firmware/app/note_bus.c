@@ -12,6 +12,16 @@
 #define CLK_AUTO CLK_INT_OUT
 static const char *const CHORD_NAME[6]={"MAJOR","MINOR","SUS2","SUS4","MAJ7","MIN7"};
 static volatile uint16_t note_owners[128];
+static volatile uint32_t sustained_notes[4];
+static volatile uint8_t sustain_active;
+static void bus_sustain(int on)
+{
+    uint32_t f=plat_lock();sustain_active=(uint8_t)!!on;
+    if(!on)for(int i=0;i<4;i++)sustained_notes[i]=0;
+    plat_unlock(f);
+}
+static int bus_sounding(int note)
+{return note_owners[note] || (sustained_notes[note>>5]>>(note&31)&1u);}
 /* Read-only visual telemetry. No drawing or extra MIDI work in the timer. */
 static volatile uint32_t visual_note_serial;
 static volatile uint8_t visual_last_note;
@@ -20,6 +30,7 @@ static void bus_on(int note,uint32_t velocity)
     if(note<0 || note>127)return;
     uint32_t f=plat_lock();
     if(!note_owners[note]++){
+        sustained_notes[note>>5]&=~(1u<<(note&31));
         visual_last_note=(uint8_t)note;visual_note_serial++;
         ctl_send(0x9u|0x90u<<8|(uint32_t)note<<16|velocity<<24,TO_USB|TO_BLE);
     }
@@ -30,7 +41,10 @@ static void bus_off(int note)
     if(note<0 || note>127)return;
     uint32_t f=plat_lock();
     if(!note_owners[note]){plat_unlock(f);return;}
-    if(!--note_owners[note])ctl_send(0x8u|0x80u<<8|(uint32_t)note<<16,TO_USB|TO_BLE);
+    if(!--note_owners[note]){
+        if(sustain_active)sustained_notes[note>>5]|=1u<<(note&31);
+        ctl_send(0x8u|0x80u<<8|(uint32_t)note<<16,TO_USB|TO_BLE);
+    }
     plat_unlock(f);
 }
 static int note_voicing(int root,uint8_t *notes)

@@ -24,7 +24,12 @@ static int out_count(int which)
 int app_expect(const char *what,int *got)
 {
     int n=0;
-    if(!strcmp(what,"page"))n=ui.page;
+    if(!strcmp(what,"led_keys"))n=(int)ui.led_keys;
+    else if(!strcmp(what,"led_dim_keys"))n=(int)ui.led_dim_keys;
+    else if(!strcmp(what,"led_buttons"))n=(int)((ui.led_buttons&((1u<<NB)-1u))|((ui.led_buttons&LED_PLAY_GREEN)?1u<<B_PLAY:0u));
+    else if(!strncmp(what,"led_",4)){int k=atoi(what+4);n=k>=0&&k<NKEYS?(int)(ui.led_keys>>k&1u):0;}
+    else if(!strcmp(what,"sounding")){for(int i=0;i<128;i++)n+=ui_sounding(i)!=0;}
+    else if(!strcmp(what,"page"))n=ui.page;
     else if(!strcmp(what,"root_note"))n=GEN_ROOT;
     else if(!strcmp(what,"gen_scale"))n=GEN_SCALE;
     else if(!strcmp(what,"gate"))n=GEN_GATE;
@@ -85,8 +90,14 @@ int app_host_cmd(const char *cmd,const char *a,const char *b,const char *c,const
             proj.arp_on,CHORD_ON,proj.bpm10,proj.clock,!!generator.pending);
         int comma=0;
         for(int i=0;i<128;i++)if(note_owners[i]){printf("%s%d",comma?",":"",i);comma=1;}
+        printf("],\"led_keys\":%u,\"led_dim_keys\":%u,\"led_buttons\":%u,\"led_dim_buttons\":%u,\"octave\":%d,\"sounding\":[",ui.led_keys,ui.led_dim_keys,
+            (ui.led_buttons&((1u<<NB)-1u))|((ui.led_buttons&LED_PLAY_GREEN)?1u<<B_PLAY:0u),
+            (ui.led_dim_buttons&((1u<<NB)-1u))|((ui.led_dim_buttons&LED_PLAY_GREEN)?1u<<B_PLAY:0u),proj.octave);
+        comma=0;
+        for(int i=0;i<128;i++)if(ui_sounding(i)){printf("%s%d",comma?",":"",i);comma=1;}
         printf("]}\n");return 1;
     }
+    if(!strcmp(cmd,"legacychord")){CHORD_ON=1;proj.arp_on=1;project_save();return 1;}
     if(!strcmp(cmd,"fixed")){proj.touch=0;touch_apply();return 1;}
     if(!strcmp(cmd,"legacy")){
         /* Seed the exact previous settings format, including dangerous routes. */

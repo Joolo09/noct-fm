@@ -111,6 +111,8 @@ int project_load(void)
         proj.chan = proj.bank = proj.scale = proj.program = 0;
         proj.sound = SOUND_OFF; proj.in_mute = 1; proj.at_mode = AT_OFF;
         proj.rsv[0] = 2;
+        /* Keyboard CHORDS is polyphonic and must not inherit a saved arp route. */
+        if(proj.rsv[1])proj.arp_on=0;
         for (int b=0;b<NBANKS;b++) for(int k=0;k<NKNOBS;k++) proj.cc[b][k]=(uint8_t)(20+k);
         return 0;
     }

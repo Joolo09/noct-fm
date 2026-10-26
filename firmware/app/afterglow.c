@@ -42,7 +42,7 @@ static void ag_tick(uint32_t now,int page)
     else glow.pulse=(uint8_t)(glow.pulse>22u?glow.pulse-22u:0u);
     for(int pc=0;pc<12;pc++){
         int held=0;
-        for(int n=pc;n<128;n+=12)held|=note_owners[n]!=0;
+        for(int n=pc;n<128;n+=12)held|=ui_sounding(n);
         glow.energy[pc]=(uint8_t)(held?255:glow.energy[pc]>16u?glow.energy[pc]-16u:0u);
     }
     glow.last=now;
@@ -125,7 +125,8 @@ static void ag_constellation(uint32_t now,uint16_t accent)
         x[i]=186+ag_sin(a+16u,28);y[i]=36+ag_sin(a,28);
         if(glow.energy[i]>100u){
             if(previous>=0)cv_line(x[previous],y[previous],x[i],y[i],ag_mix(RGB(40,32,66),accent,160));
-            if(first<0)first=i;previous=i;
+            if(first<0)first=i;
+            previous=i;
         }
     }
     if(first>=0 && first!=previous)cv_line(x[first],y[first],x[previous],y[previous],accent);
@@ -161,7 +162,7 @@ static void ag_roll(uint16_t accent)
             cv_rect(x,y,9,4,accent);cv_rect(x,y,9,1,ag_mix(accent,K_TEXT,65));
             previous_x=x;previous_y=y;
         }
-        if(generator.running && i==generator.step%16u){
+        if(generator.running && (unsigned)i==generator.step%16u){
             cv_rect(x-1,61,1,41,K_HOT);cv_rect(x-3,60,5,2,K_HOT);
             cv_rect(x,99,9,3,ag_mix(accent,K_TEXT,50));
         }

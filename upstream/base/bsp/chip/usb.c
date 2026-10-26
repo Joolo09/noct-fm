@@ -195,7 +195,10 @@ static volatile uint32_t so_w, so_r;
 
 /* MIDI rings: 4-byte USB-MIDI event packets */
 #define MQ 64u
-static uint32_t midi_in_q[MQ], midi_out_q[MQ];
+/* A held keyboard can revoice up to 38 distinct pitches: 38 Off + 38 On
+ * must fit before the main loop can service USB again. Keep RX independent. */
+#define MOQ 256u
+static uint32_t midi_in_q[MQ], midi_out_q[MOQ];
 static uint32_t midi_in_ms[MQ];
 static uint8_t midi_in_source[MQ];                    /* 1 USB, 2 TRS */
 static volatile uint32_t fm1_ms;                    /* also declared by core.h; parser-only host tests */
@@ -221,8 +224,8 @@ static int midi_enqueue(uint32_t pkt, uint32_t source)
 
 static void midi_out_event(uint32_t pkt)            /* from the audio ISR */
 {
-    if (usb.config && mo_w - mo_r < MQ) {
-        midi_out_q[mo_w % MQ] = pkt;
+    if (usb.config && mo_w - mo_r < MOQ) {
+        midi_out_q[mo_w % MOQ] = pkt;
         RING_PUBLISH();
         mo_w++;
     }
@@ -1055,7 +1058,7 @@ static void ep1_tx(void)
 #endif
         uint32_t pkt;
         RING_PUBLISH();                                 /* the audio ISR (producer) can preempt us: */
-        pkt = midi_out_q[mo_r % MQ];                    /* slot read strictly between the index checks */
+        pkt = midi_out_q[mo_r % MOQ];                   /* slot read strictly between the index checks */
         ep1tx[n] = (uint8_t)pkt;
         ep1tx[n + 1] = (uint8_t)(pkt >> 8);
         ep1tx[n + 2] = (uint8_t)(pkt >> 16);

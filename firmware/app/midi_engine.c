@@ -188,6 +188,7 @@ static int eng_arp_note(void){return arp_engine.note==255u?-1:arp_engine.note;}
 static int eng_pool(uint8_t *out){int i;for(i=0;i<arp_engine.count;i++)out[i]=arp_engine.order[i];return arp_engine.count;}
 static void midi_engine_init(void)
 {
+    bus_sustain(0);
     visual_note_serial=0;visual_last_note=0;
     memset(&arp_engine,0,sizeof arp_engine);arp_engine.note=255u;arp_engine.random=2463534242u;
     memset(&generator,0,sizeof generator);generator.melody_note=255;generator_regenerate();

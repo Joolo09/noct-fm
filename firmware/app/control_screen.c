@@ -57,7 +57,7 @@ static void knob_text(int page,int knob,char *label,char *value,int *level)
 static void sounding_text(char *out)
 {
     int count=0;
-    for(int i=0;i<128;i++)if(note_owners[i]){
+    for(int i=0;i<128;i++)if(ui_sounding(i)){
         if(count)out=put_s(out," ");
         out=note_text(out,i);
         if(++count==5)break;

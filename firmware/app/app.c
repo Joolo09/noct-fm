@@ -28,7 +28,7 @@ static void silence(int32_t *lr,uint32_t n) { uint32_t i; for(i=0;i<2u*n;i++) lr
 void app_render(int32_t *lr,uint32_t n,uint32_t gain_q12) { (void)gain_q12; silence(lr,n); }
 void app_quiet(int32_t *lr,uint32_t n) { silence(lr,n); }
 void app_overload(void) {}
-void app_panic(void) { engine_panic(); }
+void app_panic(void) { panic(); }
 void app_tick(void)
 {
     in_tick = 1;
@@ -48,7 +48,7 @@ void app_splash(void)
     cv_begin(240,96,RGB(9,11,23));
     noct_center(120,13,&FONT_M,"AFTERGLOW",AG_ACCENT[PAGE_GEN]);
     noct_center(120,47,&FONT_XS,"MIDI / FL STUDIO + LIVE",K_DIM);
-    noct_center(120,72,&FONT_XS,"NOCT 0.6",K_TEXT);cv_blit(0,144);
+    noct_center(120,72,&FONT_XS,"NOCT 0.7",K_TEXT);cv_blit(0,144);
 }
 
 #ifdef PLAT_HOST

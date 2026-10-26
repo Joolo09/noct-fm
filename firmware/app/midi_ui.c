@@ -23,11 +23,15 @@ static struct {
     int32_t master_raw;
     int16_t master_sent;
     char last[40],message[40];
-    uint32_t saves,seq_t,arp_t;
+    uint32_t saves,seq_t,arp_t,saved_until;
+    uint32_t heard_sustained[4],led_buttons,led_keys,led_dim_buttons,led_dim_keys;
+    uint8_t heard_pedal;
     uint8_t revoicing;
 } ui;
 static uint8_t noct_recording;
 static uint32_t noct_transition;
+static int ui_sounding(int note)
+{return bus_sounding(note) || ((ui.heard[note>>5]|ui.heard_sustained[note>>5])>>(note&31)&1u);}
 #define touch_live touch_is_on()
 static char *put_s(char *b,const char *s){while(*s)*b++=*s++;*b=0;return b;}
 static char *put_u(char *b,uint32_t n){char t[12];int k=0;do{t[k++]=(char)('0'+n%10u);n/=10u;}while(n);while(k)*b++=t[--k];*b=0;return b;}
@@ -73,9 +77,13 @@ static void key_down(int k,uint32_t vel)
     put_u(put_s(ui.last,"NOTE "),(uint32_t)n);
 }
 static void all_keys_up(void){int i;for(i=0;i<NKEYS;i++)key_up(i);}
+static void heard_clear(void)
+{memset(ui.heard,0,sizeof ui.heard);memset(ui.heard_sustained,0,sizeof ui.heard_sustained);ui.heard_pedal=0;}
+static void sustain_set(int on)
+{ui.sustain=(uint8_t)!!on;bus_sustain(on);play(0xB0u,64,on?127:0);}
 static void panic(void)
 {
-    all_keys_up();engine_panic();play(0xB0u,64,0);play(0xB0u,123,0);
+    all_keys_up();engine_panic();sustain_set(0);heard_clear();play(0xB0u,123,0);
     ui.sustain=0;put_s(ui.last,"ALL NOTES OFF");
 }
 static void revoice(int octave_delta,int arp_toggle)
@@ -84,12 +92,18 @@ static void revoice(int octave_delta,int arp_toggle)
     memcpy(velocity,ui.key_vel,sizeof velocity);
     all_keys_up();arp_clear();
     proj.octave=(int8_t)clamp(proj.octave+octave_delta,-3,3);
-    if(arp_toggle)proj.arp_on=(uint8_t)!proj.arp_on;
+    if(arp_toggle){proj.arp_on=(uint8_t)!proj.arp_on;if(proj.arp_on)CHORD_ON=0;}
     ui.revoicing=1;
     for(i=0;i<NKEYS;i++)if(held>>i&1u)key_down(i,velocity[i]);
     ui.revoicing=0;
     if(octave_delta)generator_regenerate();
     ui.dirty=1;
+}
+static void chord_enable(int on)
+{
+    CHORD_ON=(uint8_t)!!on;
+    if(on)proj.arp_on=0;
+    revoice(0,0);
 }
 static void touch_apply(void)
 {
@@ -126,7 +140,7 @@ static void midi_in(void)
         if(st>=0xF8u){
             engine_midi_clock(st);
             if(st==0xFAu || st==0xFBu)ui.playing=1;
-            if(st==0xFCu){ui.playing=0;if(ui.sustain){ui.sustain=0;play(0xB0u,64,0);}}
+            if(st==0xFCu){ui.playing=0;heard_clear();if(ui.sustain)sustain_set(0);}
             continue;
         }
         if(st==0xBFu){
@@ -141,22 +155,33 @@ static void midi_in(void)
             if(n==116u){
                 if(!arp_engine.transport_known || ui.playing!=(uint8_t)!!v || (!v && generator.preview))engine_transport(v!=0,v!=0);
                 ui.playing=(uint8_t)!!v;
-                if(!v && ui.sustain){ui.sustain=0;play(0xB0u,64,0);}
+                if(!v){heard_clear();if(ui.sustain)sustain_set(0);}
             }
             if(n==117u)noct_recording=(uint8_t)!!v;
             continue;
         }
         if((st&15u)!=proj.chan)continue;
-        if((st&0xF0u)==0x90u&&v)ui.heard[n>>5]|=1u<<(n&31u);
-        if((st&0xF0u)==0x80u||((st&0xF0u)==0x90u&&!v))ui.heard[n>>5]&=~(1u<<(n&31u));
-        if((st&0xF0u)==0xB0u&&(n==120u||n==123u))memset(ui.heard,0,sizeof ui.heard);
+        uint32_t bit=1u<<(n&31u);
+        if((st&0xF0u)==0x90u && v){
+            ui.heard[n>>5]|=bit;ui.heard_sustained[n>>5]&=~bit;
+            visual_last_note=(uint8_t)n;visual_note_serial++;
+        }
+        if((st&0xF0u)==0x80u || ((st&0xF0u)==0x90u&&!v)){
+            if(ui.heard_pedal && (ui.heard[n>>5]&bit))ui.heard_sustained[n>>5]|=bit;
+            ui.heard[n>>5]&=~bit;
+        }
+        if((st&0xF0u)==0xB0u && n==64u){
+            ui.heard_pedal=(uint8_t)(v>=64u);
+            if(!ui.heard_pedal)memset(ui.heard_sustained,0,sizeof ui.heard_sustained);
+        }
+        if((st&0xF0u)==0xB0u && (n==120u||n==123u))heard_clear();
     }
 }
 static void save_now(void)
 {
     ui.save_done=1;
     if(ui.down||ui.playing||arp_engine.count||generator.running||ui.sustain||plat_ms()<ui.touch_until){say("RELEASE KEYS", "STOP BEFORE SAVE");return;}
-    if(project_save()==0){ui.dirty=0;ui.saves++;say("SETTINGS SAVED",0);}
+    if(project_save()==0){ui.dirty=0;ui.saves++;ui.saved_until=plat_ms()+600u;say("SETTINGS SAVED",0);}
     else say("FLASH SAVE FAILED",0);
 }
 static void save_if_idle(void)
@@ -179,7 +204,7 @@ static void button_down(int b)
     case B_PLAY:
         if(ui.btn>>B_GLO&1u){
             ui.glo_used=1;cycle_clock();
-        }else{ui.playing=(uint8_t)(!(ui.playing || (generator.preview && generator.running)));engine_play(ui.playing);noct_control(ui.playing?110:111,127);if(!ui.playing && ui.sustain){ui.sustain=0;play(0xB0u,64,0);}}
+        }else{ui.playing=(uint8_t)(!(ui.playing || (generator.preview && generator.running)));engine_play(ui.playing);noct_control(ui.playing?110:111,127);if(!ui.playing){heard_clear();if(ui.sustain)sustain_set(0);}}
         break;
     case B_REC:
         if(ui.btn>>B_FX&1u){ui.fx_used=1;panic();}
@@ -188,7 +213,7 @@ static void button_down(int b)
     case B_ENV:
         if(ui.btn>>B_ARP&1u){ui.arp_used=1;proj.arp_latch=!proj.arp_latch;arp_latch_changed();ui.dirty=1;say("ARP HOLD",proj.arp_latch?"ON":"OFF");}
         else if(ui.btn>>B_GLO&1u){ui.glo_used=1;proj.touch=!proj.touch;touch_apply();ui.dirty=1;say("VELOCITY",proj.touch?"SENSED":"FIXED 100");}
-        else{ui.sustain=1;play(0xB0u,64,127);}
+        else sustain_set(1);
         break;
     case B_LFO:engine_mod(1);break;
     case B_OCTDN:revoice(-1,0);break;
@@ -201,10 +226,10 @@ static void button_up(int b)
     switch(b){
     case B_ARP:if(!ui.arp_used && plat_ms()-ui.arp_t<350u){revoice(0,1);say("ARPEGGIATOR",proj.arp_on?"ON":"OFF");}break;
     case B_FX:if(!ui.fx_used){noct_control(113,127);ui.fx_on=!ui.fx_on;say("DAW FX",ui.fx_on?"ON":"BYPASS");}break;
-    case B_ENV:if(ui.sustain){ui.sustain=0;play(0xB0u,64,0);}break;
+    case B_ENV:if(ui.sustain)sustain_set(0);break;
     case B_LFO:engine_mod(0);break;
     case B_SAVE:if(!ui.save_done)save_now();break;
-    case B_SEL:CHORD_ON=!CHORD_ON;revoice(0,0);ui.page=1;say("CHORDS",CHORD_ON?CHORD_NAME[CHORD_TYPE]:"OFF");break;
+    case B_SEL:chord_enable(!CHORD_ON);ui.page=1;say("CHORDS",CHORD_ON?CHORD_NAME[CHORD_TYPE]:"OFF");break;
     case B_HOME:ui.page=0;say("NOCT MIDI","ONE FIXED PRESET");break;
     case B_SEQ:
         if(!ui.seq_used && plat_ms()-ui.seq_t<350u){
@@ -249,7 +274,7 @@ static void page_knob(int page,int i,int delta)
         if(i==3)proj.touch=(uint8_t)clamp(proj.touch+delta,0,1);
     }
     plat_unlock(f);
-    if(voice && CHORD_ON)revoice(0,0);
+    if(voice)chord_enable(1);
     if((page==PAGE_CHORD && i==2)||(page==PAGE_SYNC && i==3))touch_apply();
     if(compose)generator_regenerate();
     ui.dirty=1;ui.msg_until=0;
@@ -294,12 +319,11 @@ void ui_init(void)
     touch_on(0);touch_apply();lcd_fill(0,0,240,240,K_BG);
     noct_control(119,2); /* Unified preset handshake; never selects a DAW. */
 }
-void ui_input_only(void){input();}
+#include "lighting.c"
+void ui_input_only(void){input();lighting_update();}
 void ui_frame(void)
 {
     input();noct_draw();
-    plat_lights((ui.page==PAGE_DAW?1u<<B_HOME:0u)|(proj.arp_on?1u<<B_ARP:0u)|(ui.playing?LED_PLAY_GREEN:0u)|
-        (noct_recording?1u<<B_REC:0u)|(ui.fx_on?1u<<B_FX:0u)|(CHORD_ON?1u<<B_SEL:0u)|
-        (generator.running?1u<<B_SEQ:0u),ui.down,ui.btn,0,1);
+    lighting_update();
     ann_tick(plat_ms());ui.frame++;
 }
