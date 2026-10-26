@@ -42,12 +42,13 @@ void app_say(const char *a, const char *b) { ui_say(a, b); }
 void app_splash(void)
 {
     lcd_fill(0, 0, 240, 240, K_BG);
-    cv_begin(240, 120, K_BG);
-    noct_sky(0);
-    cv_text(24, 22, &FONT_L, "NOCT FM", K_TEXT);
-    cv_text(24, 65, &FONT_XS, "AFTER HOURS / IN CONTROL", K_DIM);
-    cv_rect(24, 90, 192, 2, K_HOT);
-    cv_blit(0, 60);
+    cv_begin(240,144,RGB(9,11,23));
+    cv_text(9,7,&FONT_XS,"AFTER HOURS / IN CONTROL",K_DIM);
+    cv_band(32,106);ag_scene(plat_ms(),PAGE_DAW,AG_ACCENT[PAGE_DAW]);cv_blit(0,0);
+    cv_begin(240,96,RGB(9,11,23));
+    noct_center(120,13,&FONT_M,"AFTERGLOW",AG_ACCENT[PAGE_GEN]);
+    noct_center(120,47,&FONT_XS,"MIDI / FL STUDIO + LIVE",K_DIM);
+    noct_center(120,72,&FONT_XS,"NOCT 0.6",K_TEXT);cv_blit(0,144);
 }
 
 #ifdef PLAT_HOST

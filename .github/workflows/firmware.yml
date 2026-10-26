@@ -44,17 +44,17 @@ jobs:
             echo "AC79_SDK=$HOME/fw-AC79-mirror" >> "$GITHUB_ENV"
           fi
       - name: Build USB firmware and run image checks
-        run: sh build.sh --no-ble --release 0.5.0
+        run: sh build.sh --no-ble --release 0.6.0
       - uses: actions/upload-artifact@v4
         with:
           name: noct-usb-alpha
           path: |
-            firmware/app/build/noct-usb-0.5.0.fwsc
+            firmware/app/build/noct-usb-0.6.0.fwsc
             firmware/app/build/noct.bin
             firmware/app/build/loader/ota.bin
           if-no-files-found: error
       - name: Prepare installer bundle
-        run: python tools/prepare-site.py --firmware firmware/app/build/noct-usb-0.5.0.fwsc --output web-bundle
+        run: python tools/prepare-site.py --firmware firmware/app/build/noct-usb-0.6.0.fwsc --output web-bundle
       - uses: actions/upload-artifact@v4
         with:
           name: noct-installer-site

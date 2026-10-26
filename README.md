@@ -1,10 +1,25 @@
-# NOCT MIDI 0.5.0
+# NOCT / AFTERGLOW 0.6.0
 
 **AFTER HOURS / IN CONTROL** — один постоянный MIDI-пресет для M-VAVE FM-1, FL Studio и Ableton Live.
 
 **[Установщик и DAW-скрипты](https://joolo09.github.io/noct-fm/)** · **[Интерактивный эмулятор](emulator/README.md)**
 
-![Реальные экраны C-приложения](preview/interface-05.png)
+![Анимация реального C-приложения](preview/noct-fm.gif)
+
+## AFTERGLOW / визуальный мир
+
+Ночной пиксельный город, кольца планеты, мерцающие звёзды, комета, движущаяся сетка и мягкое северное сияние. Каждая страница получает свой акцент: мята, розовый, сиреневый, янтарный и голубой. Значения ручек расположены на отдельных тёмных панелях, чтобы анимация не мешала чтению.
+
+- DAW: вращающийся спутник, городские окна и частицы, реагирующие на Note On; логотипы FL Studio и Live.
+- CHORDS: созвездие активных классов высоты и подсвеченная клавиатура с затуханием после Note Off.
+- COMPOSE: piano roll из подготовленной фразы; отдельные слои аккордов и мелодии, указатель шага и четыре индикатора тактов.
+- RHYTHM: круг из 16 шагов и пульсация от реально отправленных нот.
+- ARP: световые ступени и ноты удержанного пула.
+- SYNC: орбита 24 PPQN; движение от реального clock, явное ожидание при его потере.
+
+Сцены рисуются целочисленным C-кодом в двух полосах 240×144 и 240×96, с ограничением обновления 20 FPS. Обработчик MIDI только обновляет короткую телеметрию; графика не выполняется в таймере. Это визуализация MIDI, не анализатор аудиосигнала. `tools/render-afterglow.py` записывает 144 реальных кадра и создаёт GIF; это не отдельный JavaScript-макет.
+
+![Шесть сцен AFTERGLOW](preview/afterglow-scenes.png)
 
 ## Управление 0.5
 
@@ -82,7 +97,7 @@ BPM feedback работает и без Sync/Clock. Сами BPM-сообщен�
 
 ## Установка, сборка и проверки
 
-[Веб-установщик](https://joolo09.github.io/noct-fm/) работает в Chrome/Edge по HTTPS и USB MIDI SysEx. Пакет 0.5.0 имеет identity `FM-1_90625000500`. Проверяются SHA-256, размер, модель и identity после перезапуска. USB audio отсутствует; после установки проверь выбор MIDI-порта в DAW. Настройки 0.3 сохраняются при миграции; generator gate меняется на 85%, добавляются seed и выбор режима. Старые 0.1/0.2 также мигрируют в постоянную маршрутизацию.
+[Веб-установщик](https://joolo09.github.io/noct-fm/) работает в Chrome/Edge по HTTPS и USB MIDI SysEx. Пакет 0.6.0 имеет identity `FM-1_90625000600`. Проверяются SHA-256, размер, модель и identity после перезапуска. USB audio отсутствует; после установки проверь выбор MIDI-порта в DAW. Настройки 0.3 сохраняются при миграции; generator gate меняется на 85%, добавляются seed и выбор режима. Старые 0.1/0.2 также мигрируют в постоянную маршрутизацию.
 
 Это экспериментальная прошивка. Перед установкой сохрани данные и подготовь официальный M-UPGRADE и процедуру восстановления для своей версии FM-1. Полный аппаратный цикл с двумя DAW ещё не проверен. Мы проверяем настоящую C-программу в симуляторе и скрипты с подставными DAW API; эти проверки не заменяют тест USB, flash и звука внутри DAW на реальном FM-1.
 
@@ -93,16 +108,16 @@ mkdir -p test-output
 firmware/app/build/host/noct-usb_host tests/noct.ctl test-output
 python tests/test_midi_engine.py
 node tests/installer.test.mjs
-sh build.sh --no-ble --release 0.5.0
+sh build.sh --no-ble --release 0.6.0
 ```
 
-CI проверяет 12 тестов DAW-скриптов, 15 сценарных тестов музыкального движка, 9 проверок управления и основной сценарий всех кнопок, 27 клавиш, 7 октав, CC, аккордов, совместного владения нотами, генератора, clock/BPM, Start/Stop/Continue, panic, сохранения и миграции. Сборка требует Linux x86-64, JieLi pi32v2 toolchain и AC79 SDK. Результат: `firmware/app/build/noct-usb-0.5.0.fwsc`. Сценарий GitHub Pages публикует последнюю успешную сборку. Исходники сайта — `site/`.
+CI проверяет 12 тестов DAW-скриптов, 15 сценарных тестов музыкального движка, 9 проверок управления и основной сценарий всех кнопок, 27 клавиш, 7 октав, CC, аккордов, совместного владения нотами, генератора, clock/BPM, Start/Stop/Continue, panic, сохранения и миграции. Сборка требует Linux x86-64, JieLi pi32v2 toolchain и AC79 SDK. Результат: `firmware/app/build/noct-usb-0.6.0.fwsc`. Сценарий GitHub Pages публикует последнюю успешную сборку. Исходники сайта — `site/`.
 
 На Windows для host нужны Python 3.11+, Pillow и Zig 0.13.0; `tools/build-host.ps1 -NoBle`. Host — симулятор, он не управляет реальным MIDI и не прошивает устройство.
 
 ## Основа и лицензии
 
-На основе [CTL-1](https://github.com/charlesvestal/fm1-ctl) `e181b4a1ac1510ce18ebf6e271a143c2fe364ccd`, fm1-base `b16c177a9086be955cd3e418383f2fd92c6d658b` и felucca-bsp `b4bb32ee0729595b7a30fbf239721286444eceb0`. Активное приложение: `app.c`, `project.c`, `note_bus.c`, `midi_engine.c`, `composer.c`, `midi_ui.c`, `midi_screen.c`, `control_screen.c`, `midi_host.c`; старые UI/engine-файлы сохранены как исходный материал и не включены в сборку.
+На основе [CTL-1](https://github.com/charlesvestal/fm1-ctl) `e181b4a1ac1510ce18ebf6e271a143c2fe364ccd`, fm1-base `b16c177a9086be955cd3e418383f2fd92c6d658b` и felucca-bsp `b4bb32ee0729595b7a30fbf239721286444eceb0`. Активное приложение: `app.c`, `project.c`, `note_bus.c`, `midi_engine.c`, `composer.c`, `midi_ui.c`, `midi_screen.c`, `control_screen.c`, `afterglow.c`, `midi_host.c`; старые UI/engine-файлы сохранены как исходный материал и не включены в сборку.
 
 MPL-2.0 для приложения и модификаций; авторские заголовки сохранены. Лицензии: `LICENSE`, `upstream/LICENSING.md`, `upstream/LICENSES`, `upstream/base/`. Terminus — SIL OFL. Sonivox EAS сохранён в исходниках под Apache-2.0, но не линкуется в MIDI-сборку. Проект независим от M-VAVE, Image-Line и Ableton; логотипы обозначают совместимые DAW. Development identity экспериментальная.
 

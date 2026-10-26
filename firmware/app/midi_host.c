@@ -75,6 +75,7 @@ int app_expect(const char *what,int *got)
 int app_host_cmd(const char *cmd,const char *a,const char *b,const char *c,const char *d)
 {
     (void)a;(void)b;(void)c;(void)d;
+    if(!strcmp(cmd,"splash")){app_splash();return 1;}
     if(!strcmp(cmd,"simclock")){
         simulated_clock=(uint8_t)!!atoi(a);simulated_phase=0;return 1;
     }

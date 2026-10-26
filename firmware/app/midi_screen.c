@@ -19,16 +19,6 @@ static void noct_logo(int x,int y,int scale,int live)
         if(c!='0')cv_rect(x+i*scale,y+j*scale,scale,scale,c=='3'?RGB(151,214,107):c=='2'?RGB(255,211,141):K_HOT);
     }
 }
-static void noct_sky(uint32_t tick)
-{
-    int i,x,y;
-    for(i=0;i<34;i++)cv_rect((i*83+17)%240,(i*41+11)%72,1+(i%9==0),1,
-        ((tick/5+(uint32_t)i)%7==0)?K_TEXT:K_LINE);
-    for(x=0;x<240;x+=3){int a=(x+27)%110;y=80-(a<55?a:110-a)/3;cv_rect(x,y,3,95-y,RGB(26,26,51));}
-    cv_rect(0,94,240,1,RGB(104,85,146));
-    for(i=-4;i<=4;i++)cv_line(120+i*15,95,120+i*56,119,K_LINE);
-    for(i=0;i<4;i++){int t=(i*6+(int)(tick%6))%24;cv_rect(0,95+t*t/24,240,1,RGB(33,34,61));}
-}
 static void noct_center(int x,int y,const felucca_font_t *f,const char *s,uint16_t c)
 {cv_text(x-text_w(f,s)/2,y,f,s,c);}
 #include "control_screen.c"

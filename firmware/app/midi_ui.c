@@ -287,6 +287,7 @@ static int lit(int port,int out){return plat_midi_ago(port,out)<120u;}
 #include "midi_screen.c"
 void ui_init(void)
 {
+    memset(&glow,0,sizeof glow);glow.page=255;
     memset(&ui,0,sizeof ui);ui.touched=-1;ui.master_raw=(int32_t)plat_master();
     ui.master_sent=(int16_t)clamp(ui.master_raw*127/4000,0,127);
     noct_recording=0;noct_transition=plat_ms()+500u;

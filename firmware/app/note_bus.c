@@ -12,11 +12,17 @@
 #define CLK_AUTO CLK_INT_OUT
 static const char *const CHORD_NAME[6]={"MAJOR","MINOR","SUS2","SUS4","MAJ7","MIN7"};
 static volatile uint16_t note_owners[128];
+/* Read-only visual telemetry. No drawing or extra MIDI work in the timer. */
+static volatile uint32_t visual_note_serial;
+static volatile uint8_t visual_last_note;
 static void bus_on(int note,uint32_t velocity)
 {
     if(note<0 || note>127)return;
     uint32_t f=plat_lock();
-    if(!note_owners[note]++)ctl_send(0x9u|0x90u<<8|(uint32_t)note<<16|velocity<<24,TO_USB|TO_BLE);
+    if(!note_owners[note]++){
+        visual_last_note=(uint8_t)note;visual_note_serial++;
+        ctl_send(0x9u|0x90u<<8|(uint32_t)note<<16|velocity<<24,TO_USB|TO_BLE);
+    }
     plat_unlock(f);
 }
 static void bus_off(int note)
