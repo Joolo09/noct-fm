@@ -88,7 +88,7 @@ static void panic(void)
 }
 static void revoice(int octave_delta,int arp_toggle)
 {
-    uint32_t held=ui.down;uint8_t velocity[NKEYS];int i;
+    uint32_t flags=plat_lock(),held=ui.down;uint8_t velocity[NKEYS];int i;
     memcpy(velocity,ui.key_vel,sizeof velocity);
     all_keys_up();arp_clear();
     proj.octave=(int8_t)clamp(proj.octave+octave_delta,-3,3);
@@ -97,13 +97,14 @@ static void revoice(int octave_delta,int arp_toggle)
     for(i=0;i<NKEYS;i++)if(held>>i&1u)key_down(i,velocity[i]);
     ui.revoicing=0;
     if(octave_delta)generator_regenerate();
-    ui.dirty=1;
+    ui.dirty=1;plat_unlock(flags);
 }
 static void chord_enable(int on)
 {
+    uint32_t flags=plat_lock();
     CHORD_ON=(uint8_t)!!on;
     if(on)proj.arp_on=0;
-    revoice(0,0);
+    revoice(0,0);plat_unlock(flags);
 }
 static void touch_apply(void)
 {
