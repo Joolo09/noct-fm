@@ -240,7 +240,7 @@ static void ag_scene(uint32_t now,int page,uint16_t accent)
         cv_text(9,3,&FONT_XS,page==PAGE_GEN?"COMPOSE  /  1 OF 2":"RHYTHM  /  2 OF 2",accent);
         if(page==PAGE_GEN){
             cv_text(8,19,&FONT_B,proj.gen_mode==2?"MELODY + CHORDS":GEN_MODE_NAME[proj.gen_mode],K_TEXT);
-            p=note_text(text,GEN_ROOT+12*proj.octave);p=put_s(p," / ");put_s(p,SCALE_NAME[GEN_SCALE]);
+            p=note_text(text,music_midi_pitch(GEN_ROOT+12*proj.octave));p=put_s(p," / ");put_s(p,SCALE_NAME[GEN_SCALE]);
             cv_text(9,39,&FONT_XS,text,K_TEXT);
         }else{
             put_u(text,GEN_DENSITY);cv_text(8,17,&FONT_L,text,K_TEXT);
@@ -306,7 +306,7 @@ static void noct_draw(void)
     else if(generator.pending)put_s(text,"NEXT BAR / HOME: DAW");
     else if(page==PAGE_GEN)put_s(text,"PRESET: RHYTHM  EDIT: NEW");
     else if(page==PAGE_FEEL)put_s(text,"SEQ: RUN/STOP  EDIT: NEW");
-    else if(page==PAGE_DAW)put_s(text,"PRESET: PAGES  SELECT: BPM");
+    else if(page==PAGE_DAW)put_s(text,KNOB_MAP?"MIDI MAP / HOLD HOME: MIXER":"MIXER / HOLD HOME: MIDI MAP");
     else put_s(text,"PRESET: PAGES  HOME: DAW");
     cv_text(8,82,&FONT_XS,text,now<ui.msg_until?K_HOT:K_DIM);cv_blit(0,144);
 }

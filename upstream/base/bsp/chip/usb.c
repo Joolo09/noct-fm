@@ -222,13 +222,73 @@ static int midi_enqueue(uint32_t pkt, uint32_t source)
     return 1;
 }
 
+/* Bounded recovery storage: releases must survive a host that stops reading.
+ * While releases are deferred, reject new traffic until the older FIFO and
+ * its releases have reached EP1. Never send an old Off after a new On.
+ * Scan the actual masks instead of a shared pending flag: the producer may
+ * preempt ep1_tx, so clearing a cached flag could otherwise lose a release. */
+/* Producer and consumer own separate bitsets. Pending = posted XOR sent;
+ * unlike a shared read/modify/write mask, acknowledging one pitch cannot
+ * erase another release posted by a preempting audio interrupt. */
+static volatile uint32_t midi_release_notes[16][4],midi_release_sent[16][4];
+static volatile uint8_t midi_release_cc[16],midi_release_cc_sent[16];
+static const uint8_t MIDI_RELEASE_CC[6]={64,66,69,120,121,123};
+static int midi_release_pending(void)
+{
+    for(unsigned ch=0;ch<16u;ch++){
+        if(midi_release_cc[ch]!=midi_release_cc_sent[ch])return 1;
+        for(unsigned word=0;word<4u;word++)if(midi_release_notes[ch][word]!=midi_release_sent[ch][word])return 1;
+    }
+    return 0;
+}
+static void midi_release_defer(uint32_t pkt)
+{
+    unsigned st=pkt>>8&255u,ch=st&15u,n=pkt>>16&127u,v=pkt>>24&127u;
+    if((st&240u)==0x80u || ((st&240u)==0x90u && !v)){
+        uint32_t bit=1u<<(n&31u);
+        if(!((midi_release_notes[ch][n>>5]^midi_release_sent[ch][n>>5])&bit))
+            midi_release_notes[ch][n>>5]^=bit;
+    }
+    else if((st&240u)==0xB0u)
+        for(unsigned i=0;i<6u;i++)if(n==MIDI_RELEASE_CC[i] && (i>=3u || v<64u))
+            if(!((midi_release_cc[ch]^midi_release_cc_sent[ch])>>i&1u))
+                midi_release_cc[ch]^=(uint8_t)(1u<<i);
+}
+static uint32_t midi_release_next(void)
+{
+    for(unsigned ch=0;ch<16u;ch++){
+        for(unsigned word=0;word<4u;word++){
+            uint32_t bits=midi_release_notes[ch][word]^midi_release_sent[ch][word];
+            if(bits){
+                unsigned bit=0;while(!(bits>>bit&1u))bit++;
+                midi_release_sent[ch][word]^=1u<<bit;
+                return 8u|(0x80u|ch)<<8|(word*32u+bit)<<16;
+            }
+        }
+        for(unsigned i=0;i<6u;i++)if((midi_release_cc[ch]^midi_release_cc_sent[ch])>>i&1u){
+            midi_release_cc_sent[ch]^=(uint8_t)(1u<<i);
+            return 0xBu|(0xB0u|ch)<<8|(uint32_t)MIDI_RELEASE_CC[i]<<16;
+        }
+    }
+    return 0;
+}
+static void midi_release_reset(void)
+{
+    for(unsigned ch=0;ch<16u;ch++){
+        midi_release_cc[ch]=midi_release_cc_sent[ch]=0;
+        for(unsigned word=0;word<4u;word++)midi_release_notes[ch][word]=midi_release_sent[ch][word]=0;
+    }
+}
 static void midi_out_event(uint32_t pkt)            /* from the audio ISR */
 {
-    if (usb.config && mo_w - mo_r < MOQ) {
+    if (!usb.config)
+        return;
+    if (mo_w - mo_r < MOQ && !midi_release_pending()) {
         midi_out_q[mo_w % MOQ] = pkt;
         RING_PUBLISH();
         mo_w++;
-    }
+    } else
+        midi_release_defer(pkt);
 }
 
 /* ------------------------------------------------------- descriptors --- */
@@ -935,6 +995,10 @@ static void midi_in_event(uint32_t pkt)                 /* one USB-MIDI event pa
         midi_enqueue(0xFu | st << 8, 1u);
         return;
     }
+    if (cin == 3u && st == 0xF2u && !(pkt & 0x80800000u)) {
+        midi_enqueue(pkt, 1u);                         /* Song Position Pointer */
+        return;
+    }
     if (cin >= 8u && cin <= 0xEu && (st >> 4) == cin && !((pkt >> 16) & 0x80u) &&
         ((cin == 0xCu || cin == 0xDu) || !(pkt & 0x80000000u))) {
         midi_enqueue(pkt, 1u);
@@ -1030,10 +1094,10 @@ static void ep1_tx(void)
 {
     uint32_t csr, n = 0;
 #if FELUCCA_OTA
-    if (mo_w == mo_r && so_w == so_r)
+    if (mo_w == mo_r && so_w == so_r && !midi_release_pending())
         return;
 #else
-    if (mo_w == mo_r)
+    if (mo_w == mo_r && !midi_release_pending())
         return;
 #endif
     sie_wr(S_INDEX, 1);
@@ -1066,6 +1130,24 @@ static void ep1_tx(void)
         n += 4u;
         RING_PUBLISH();
         mo_r++;
+    }
+#if FELUCCA_OTA
+    if (!sx_busy && so_r == so_w)
+#endif
+    while (mo_r == mo_w && n < 64u) {
+        uint32_t pkt = midi_release_next();
+        if (!pkt)
+            break;
+        RING_PUBLISH();
+        if (mo_r != mo_w) {                           /* producer ran while scanning */
+            midi_release_defer(pkt);
+            break;
+        }
+        ep1tx[n] = (uint8_t)pkt;
+        ep1tx[n + 1] = (uint8_t)(pkt >> 8);
+        ep1tx[n + 2] = (uint8_t)(pkt >> 16);
+        ep1tx[n + 3] = (uint8_t)(pkt >> 24);
+        n += 4u;
     }
     if (!n)
         return;
@@ -1470,6 +1552,7 @@ static void usb_poll(void)                              /* TIMER5 ISR, 2 kHz */
         usb.config = 0;
         usb.suspended = 0;
         mo_r = mo_w;                                    /* nothing stale for the next host */
+        midi_release_reset();
         usb.sx_on = 0;
 #if FELUCCA_OTA
         so_r = so_w;

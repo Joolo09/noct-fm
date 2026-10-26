@@ -21,6 +21,9 @@ static int scale_pitch(int degree,const uint8_t *scale)
     int octave=0;while(degree<0){degree+=7;octave--;}
     return 12*(octave+degree/7)+scale[degree%7];
 }
+/* Preserve the requested octave unless a pitch actually leaves MIDI range. */
+static int music_midi_pitch(int pitch)
+{while(pitch<0)pitch+=12;while(pitch>127)pitch-=12;return pitch;}
 static void generator_melody_off(void)
 {if(generator.melody_note!=255u)bus_off(generator.melody_note);generator.melody_note=255;generator.melody_gate=0;}
 static void generator_chord_off(void)
@@ -39,10 +42,8 @@ static void generator_regenerate(void)
     composition_t *p=&generator.plan[dest];
     const uint8_t *scale=scales[GEN_SCALE!=0];
     const uint8_t *progression=progressions[GEN_SCALE!=0][proj.gen_progression];
-    uint32_t random=proj.gen_seed;int motif[16],previous[3],base,range=GEN_OCTAVES*7;
-    base=(int)GEN_ROOT+12*proj.octave;
-    while(base<12)base+=12;
-    while(base>72)base-=12;
+    uint32_t random=proj.gen_seed;int motif[16],previous[3],base=60,range=GEN_OCTAVES*7;
+    int transpose=(int)GEN_ROOT-60+12*proj.octave;
     p->mode=proj.gen_mode;p->gate=GEN_GATE;
     motif[0]=0;
     for(int i=1;i<16;i++)motif[i]=clamp(motif[i-1]+(int)(music_random(&random)%3u)-1,-3,3);
@@ -69,7 +70,7 @@ static void generator_regenerate(void)
             }
             if(cost<best){best=cost;memcpy(chosen,candidate,sizeof chosen);}
         }
-        for(int v=0;v<3;v++){p->chords[bar][v]=(uint8_t)chosen[v];previous[v]=chosen[v];}
+        for(int v=0;v<3;v++){p->chords[bar][v]=(uint8_t)music_midi_pitch(chosen[v]+transpose);previous[v]=chosen[v];}
         for(int step=0;step<16;step++){
             int d=degree+motif[step];
             if(!(step%4)){
@@ -88,7 +89,7 @@ static void generator_regenerate(void)
             int pitch=base+scale_pitch(d,scale)+(p->mode==2?12:0);
             /* Pentatonic melody uses minor harmony but omits degrees 2 and 6. */
             if(GEN_SCALE==2 && (d%7==1 || d%7==5))pitch=base+scale_pitch(d-1,scale)+(p->mode==2?12:0);
-            p->melody[bar*16+step]=(uint8_t)clamp(pitch,0,127);
+            p->melody[bar*16+step]=(uint8_t)music_midi_pitch(pitch+transpose);
         }
     }
     f=plat_lock();generator.pending=(uint8_t)(dest+1);

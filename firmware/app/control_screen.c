@@ -21,7 +21,7 @@ static const char *run_label(void)
 static void knob_text(int page,int knob,char *label,char *value,int *level)
 {
     *level=-1;
-    if(page==PAGE_DAW){if(knob<2)put_s(label,knob?"PAN":"VOLUME");else put_u(put_s(label,"CC "),20u+(unsigned)knob);put_u(value,proj.val[0][knob]);*level=proj.val[0][knob];}
+    if(page==PAGE_DAW){if(!KNOB_MAP && knob<2)put_s(label,knob?"PAN":"VOLUME");else put_u(put_s(label,"CC "),(KNOB_MAP?24u:20u)+(unsigned)knob);put_u(value,proj.val[KNOB_MAP?1:0][knob]);*level=proj.val[KNOB_MAP?1:0][knob];}
     else if(page==PAGE_CHORD){
         static const char *const names[4]={"QUALITY","VELOCITY","TOUCH","OCTAVE"};put_s(label,names[knob]);
         if(knob==0)put_s(value,CHORD_NAME[CHORD_TYPE]);
@@ -32,7 +32,7 @@ static void knob_text(int page,int knob,char *label,char *value,int *level)
         static const char *const names[4]={"MODE","SCALE","ROOT","HARMONY"};put_s(label,names[knob]);
         if(knob==0)put_s(value,GEN_MODE_NAME[proj.gen_mode]);
         if(knob==1)put_s(value,SCALE_NAME[GEN_SCALE]);
-        if(knob==2)note_text(value,GEN_ROOT+12*proj.octave);
+        if(knob==2)note_text(value,music_midi_pitch(GEN_ROOT+12*proj.octave));
         if(knob==3)put_s(value,HARMONY_NAME[GEN_SCALE!=0][proj.gen_progression]);
     }else if(page==PAGE_FEEL){
         static const char *const names[4]={"NOTES/BAR","LENGTH","RANGE","VELOCITY"};put_s(label,names[knob]);

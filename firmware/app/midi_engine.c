@@ -163,6 +163,27 @@ static void engine_transport(int on,int restart)
     }
     plat_unlock(f);
 }
+/* A DAW snapshot is not a Start/Stop command. In particular, stopped
+ * snapshots must not cancel local preview, and playing snapshots must not
+ * turn Continue into Start depending on callback/clock ordering. */
+static void engine_feedback(int on)
+{
+    uint32_t f=plat_lock();
+    if(arp_engine.remote_running!=(uint8_t)!!on)engine_transport(on,0);
+    arp_engine.transport_known=1;
+    plat_unlock(f);
+}
+static void engine_song_position(uint32_t position)
+{
+    uint32_t f=plat_lock(),ticks=(position&16383u)*6u;
+    arp_off();generator_off();
+    arp_engine.ticks=ticks;arp_engine.phase=0;
+    arp_engine.position=ticks/RATE_TICKS[proj.arp_rate];
+    generator.cursor=(uint16_t)(ticks%384u);
+    generator.step=(uint8_t)(generator.cursor/6u);
+    generator.wait_bar=0;generator.resume_chord=generator.running;
+    plat_unlock(f);
+}
 void engine_midi_clock(uint32_t st)
 {
     uint32_t f=plat_lock();
@@ -182,7 +203,7 @@ void engine_midi_clock(uint32_t st)
     if(st==0xFCu)engine_transport(0,0);
     plat_unlock(f);
 }
-void engine_play(int on){engine_transport(on,on);}
+void engine_play(int on){engine_transport(on,0);}
 void engine_reset_tempo(void){arp_engine.phase=0;}
 static int eng_arp_note(void){return arp_engine.note==255u?-1:arp_engine.note;}
 static int eng_pool(uint8_t *out){int i;for(i=0;i<arp_engine.count;i++)out[i]=arp_engine.order[i];return arp_engine.count;}

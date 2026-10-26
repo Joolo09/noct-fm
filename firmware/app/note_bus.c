@@ -4,6 +4,7 @@
 #define MAX_VOICING 4
 #define CHORD_ON (proj.rsv[1])
 #define CHORD_TYPE (proj.rsv[2])
+#define KNOB_MAP (proj.rsv[3])
 #define GEN_SCALE (proj.rsv[4])
 #define GEN_DENSITY (proj.rsv[5])
 #define GEN_ROOT (proj.rsv[6])

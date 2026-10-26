@@ -23,7 +23,7 @@ static struct {
     int32_t master_raw;
     int16_t master_sent;
     char last[40],message[40];
-    uint32_t saves,seq_t,arp_t,saved_until;
+    uint32_t saves,seq_t,arp_t,home_t,saved_until;
     uint32_t heard_sustained[4],led_buttons,led_keys,led_dim_buttons,led_dim_keys;
     uint8_t heard_pedal;
     uint8_t revoicing;
@@ -96,8 +96,9 @@ static void revoice(int octave_delta,int arp_toggle)
     ui.revoicing=1;
     for(i=0;i<NKEYS;i++)if(held>>i&1u)key_down(i,velocity[i]);
     ui.revoicing=0;
-    if(octave_delta)generator_regenerate();
     ui.dirty=1;plat_unlock(flags);
+    /* Composition is prepared outside the keyboard/timer critical section. */
+    if(octave_delta)generator_regenerate();
 }
 static void chord_enable(int on)
 {
@@ -144,8 +145,10 @@ static void midi_in(void)
             if(st==0xFCu){ui.playing=0;heard_clear();if(ui.sustain)sustain_set(0);}
             continue;
         }
+        if(st==0xF2u){engine_song_position(n|(v<<7));continue;}
         if(st==0xBFu){
             if(n>=20u&&n<=23u)proj.val[0][n-20u]=(uint8_t)v;
+            if(n>=24u&&n<=27u)proj.val[1][n-24u]=(uint8_t)v;
             if(n==113u)ui.fx_on=(uint8_t)!!v;
             if(n==114u){ui.tempo_hi=(uint8_t)v;ui.tempo_pending=1;}
             if(n==115u && ui.tempo_pending){
@@ -154,9 +157,10 @@ static void midi_in(void)
                 plat_unlock(f);ui.tempo_pending=0;
             }
             if(n==116u){
-                if(!arp_engine.transport_known || ui.playing!=(uint8_t)!!v || (!v && generator.preview))engine_transport(v!=0,v!=0);
+                int was_running=arp_engine.remote_running;
+                engine_feedback(v!=0);
                 ui.playing=(uint8_t)!!v;
-                if(!v){heard_clear();if(ui.sustain)sustain_set(0);}
+                if(!v && was_running){heard_clear();if(ui.sustain)sustain_set(0);}
             }
             if(n==117u)noct_recording=(uint8_t)!!v;
             continue;
@@ -202,6 +206,7 @@ static void button_down(int b)
     case B_GLO:ui.glo_used=0;break;
     case B_FX:ui.fx_used=0;break;
     case B_SAVE:ui.save_t=plat_ms();ui.save_done=0;break;
+    case B_HOME:ui.home_t=plat_ms();break;
     case B_PLAY:
         if(ui.btn>>B_GLO&1u){
             ui.glo_used=1;cycle_clock();
@@ -231,7 +236,10 @@ static void button_up(int b)
     case B_LFO:engine_mod(0);break;
     case B_SAVE:if(!ui.save_done)save_now();break;
     case B_SEL:chord_enable(!CHORD_ON);ui.page=1;say("CHORDS",CHORD_ON?CHORD_NAME[CHORD_TYPE]:"OFF");break;
-    case B_HOME:ui.page=0;say("NOCT MIDI","ONE FIXED PRESET");break;
+    case B_HOME:
+        ui.page=PAGE_DAW;
+        if(plat_ms()-ui.home_t>=600u){KNOB_MAP=!KNOB_MAP;ui.dirty=1;}
+        say(KNOB_MAP?"MIDI MAP":"DAW MIXER","HOLD HOME TO SWITCH");break;
     case B_SEQ:
         if(!ui.seq_used && plat_ms()-ui.seq_t<350u){
             generator_toggle();ui.page=2;
@@ -291,8 +299,8 @@ static void input(void)
         if(btn>>B_SEQ&1u)ui.seq_used=1;
         if(ui.page!=PAGE_DAW)page_knob(ui.page,i,e);
         else{
-            int value=clamp(proj.val[0][i]+e,0,127);
-            if(value!=proj.val[0][i]){proj.val[0][i]=(uint8_t)value;noct_control(20u+(uint32_t)i,(uint32_t)value);}
+            int mode=KNOB_MAP?1:0,value=clamp(proj.val[mode][i]+e,0,127);
+            if(value!=proj.val[mode][i]){proj.val[mode][i]=(uint8_t)value;noct_control((mode?24u:20u)+(uint32_t)i,(uint32_t)value);}
         }
         ui.touched=(int8_t)i;ui.touch_until=plat_ms()+600u;
     }

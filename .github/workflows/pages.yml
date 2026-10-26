@@ -5,9 +5,6 @@ on:
     workflows: [Build NOCT firmware]
     types: [completed]
     branches: [main]
-  push:
-    branches: [main]
-    paths: ['site/**', 'tools/prepare-site.py', '.github/workflows/pages.yml']
 permissions:
   contents: read
   actions: read
@@ -18,27 +15,33 @@ concurrency:
   cancel-in-progress: false
 jobs:
   deploy:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - name: Test installer and prepare static files
         run: |
           node tests/installer.test.mjs
           python tools/prepare-site.py --output _site
-      - name: Include latest successful firmware build when available
+      - name: Include the verified firmware from this commit
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUILD_RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
-          run=$(gh run list --workflow firmware.yml --branch main --status success --json databaseId --jq '.[0].databaseId // empty')
-          if [ -n "$run" ]; then
-            gh run download "$run" --name noct-usb-alpha --dir downloaded
-            file=$(find downloaded -name '*.fwsc' -print -quit)
-            test -n "$file"
-            python tools/prepare-site.py --firmware "$file" --output _site
+          run="$BUILD_RUN_ID"
+          if [ -z "$run" ]; then
+            run=$(gh run list --workflow firmware.yml --branch main --commit "$GITHUB_SHA" --status success --json databaseId --jq '.[0].databaseId // empty')
           fi
+          test -n "$run" || { echo "Build firmware successfully for this commit before deploying." >&2; exit 1; }
+          gh run download "$run" --name noct-usb-alpha --dir downloaded
+          file=$(find downloaded -name '*.fwsc' -print -quit)
+          test -n "$file"
+          python tools/prepare-site.py --firmware "$file" --output _site
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

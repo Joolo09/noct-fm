@@ -36,6 +36,8 @@ int app_expect(const char *what,int *got)
     else if(!strcmp(what,"velocity"))n=proj.vel;
     else if(!strcmp(what,"chan"))n=proj.chan;
     else if(!strcmp(what,"profile"))n=proj.rsv[0];
+    else if(!strcmp(what,"knob_map"))n=KNOB_MAP;
+    else if(!strncmp(what,"mapval",6))n=proj.val[1][atoi(what+6)&3];
     else if(!strcmp(what,"bank"))n=proj.bank;
     else if(!strcmp(what,"scale"))n=proj.scale;
     else if(!strcmp(what,"program"))n=proj.program;
@@ -85,9 +87,9 @@ int app_host_cmd(const char *cmd,const char *a,const char *b,const char *c,const
         simulated_clock=(uint8_t)!!atoi(a);simulated_phase=0;return 1;
     }
     if(!strcmp(cmd,"snapshot")){
-        printf("@STATE {\"ms\":%u,\"page\":%u,\"playing\":%u,\"generator\":%u,\"running\":%u,\"mode\":%u,\"arp\":%u,\"chords\":%u,\"bpm\":%u,\"clock\":%u,\"pending\":%u,\"notes\":[",
+        printf("@STATE {\"ms\":%u,\"page\":%u,\"playing\":%u,\"generator\":%u,\"running\":%u,\"mode\":%u,\"arp\":%u,\"chords\":%u,\"knob_map\":%u,\"bpm\":%u,\"clock\":%u,\"pending\":%u,\"notes\":[",
             now_ms,ui.page,ui.playing,generator.enabled,generator.running,proj.gen_mode,
-            proj.arp_on,CHORD_ON,proj.bpm10,proj.clock,!!generator.pending);
+            proj.arp_on,CHORD_ON,KNOB_MAP,proj.bpm10,proj.clock,!!generator.pending);
         int comma=0;
         for(int i=0;i<128;i++)if(note_owners[i]){printf("%s%d",comma?",":"",i);comma=1;}
         printf("],\"led_keys\":%u,\"led_dim_keys\":%u,\"led_buttons\":%u,\"led_dim_buttons\":%u,\"octave\":%d,\"sounding\":[",ui.led_keys,ui.led_dim_keys,

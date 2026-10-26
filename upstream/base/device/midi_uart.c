@@ -5,7 +5,8 @@
  * RX, 31250 baud, RX DMA into a 128-byte ring, polled from the TIMER5 ISR outside the render, the
  * same context as usb_poll. Channel messages and Clock / Start / Continue / Stop go into midi_in_q
  * beside USB's, as USB-MIDI packets (CIN = status >> 4) on cable 1, which tells them apart from USB's
- * (plat_midi_in's port); other system messages and SysEx are ignored (no SysEx -> UBOOT from the jack). */
+ * (plat_midi_in's port). Song Position Pointer uses CIN 3; other system
+ * messages and SysEx are ignored (no SysEx -> UBOOT from the jack). */
 #include "fm1_uart.h"           /* registers (felucca-bsp chip/; the host test adds it to its include path) */
 
 #define UM_RING 128u
@@ -46,7 +47,7 @@ static void um_byte(uint32_t b)
     }
     if (b & 0x80u) {
         um.sysex = b == 0xF0u;
-        um.st = b < 0xF0u ? (uint8_t)b : 0;        /* system common / SysEx end running status */
+        um.st = b < 0xF0u || b == 0xF2u ? (uint8_t)b : 0;
         um.need = (uint8_t)um_len(b);
         um.got = 0;
         return;
@@ -61,10 +62,12 @@ static void um_byte(uint32_t b)
     {
         uint32_t d1 = um.need == 2u ? um.d0 : b, d2 = um.need == 2u ? b : 0u;
         um.got = 0;
-        if (um_put((um.st >> 4) | (uint32_t)um.st << 8 | d1 << 16 | d2 << 24))
+        if (um_put((um.st == 0xF2u ? 3u : um.st >> 4) | (uint32_t)um.st << 8 | d1 << 16 | d2 << 24))
             um.msgs++;
         else
             um.drops++;
+        if (um.st == 0xF2u)
+            um.st = 0;                             /* system common has no running status */
     }
 }
 

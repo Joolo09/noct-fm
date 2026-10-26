@@ -35,7 +35,7 @@ if args.firmware:
     directory.mkdir(exist_ok=True)
     filename='noct-usb-alpha.fwsc'
     (directory/filename).write_bytes(data)
-    version={'FM-1_90625000600':'NOCT AFTERGLOW 0.6.0 / USB','FM-1_90625000500':'NOCT MIDI 0.5.0 / USB','FM-1_90625000400':'NOCT MIDI 0.4.0 / USB','FM-1_90625000300':'NOCT MIDI 0.3.0 / USB','FM-1_90625000700':'NOCT AFTERGLOW 0.7.0 / USB','FM-1_90625000200':'NOCT MIDI 0.2.0 / USB'}.get(product,'NOCT FM / USB alpha')
+    version={'FM-1_90625000600':'NOCT AFTERGLOW 0.6.0 / USB','FM-1_90625000500':'NOCT MIDI 0.5.0 / USB','FM-1_90625000400':'NOCT MIDI 0.4.0 / USB','FM-1_90625000300':'NOCT MIDI 0.3.0 / USB','FM-1_90625000700':'NOCT AFTERGLOW 0.7.0 / USB','FM-1_90625000701':'NOCT AFTERGLOW 0.7.1 / USB','FM-1_90625000200':'NOCT MIDI 0.2.0 / USB'}.get(product,'NOCT FM / USB alpha')
     manifest={'schema':1,'builds':[{'version':version,'product':product,
         'sha256':hashlib.sha256(data).hexdigest(),'bytes':len(data),'url':f'./firmware/{filename}'}]}
     (args.output/'firmware.json').write_text(json.dumps(manifest,indent=2)+'\n')

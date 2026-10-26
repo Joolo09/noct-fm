@@ -48,7 +48,7 @@ void app_splash(void)
     cv_begin(240,96,RGB(9,11,23));
     noct_center(120,13,&FONT_M,"AFTERGLOW",AG_ACCENT[PAGE_GEN]);
     noct_center(120,47,&FONT_XS,"MIDI / FL STUDIO + LIVE",K_DIM);
-    noct_center(120,72,&FONT_XS,"NOCT 0.7",K_TEXT);cv_blit(0,144);
+    noct_center(120,72,&FONT_XS,"NOCT 0.7.1",K_TEXT);cv_blit(0,144);
 }
 
 #ifdef PLAT_HOST
