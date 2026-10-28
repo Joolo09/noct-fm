@@ -7,6 +7,49 @@ def note_ons(output):
     return [(int(t),int(n,16)) for t,n in re.findall(r'(\d+) ms: 90 ([0-9A-F]{2}) 64 -> USB',output)]
 
 class ChordLightTests(unittest.TestCase):
+    def test_sel_held_quality_edit_stays_on_and_sends_simultaneous_chord(self):
+        intervals=((0,4,7),(0,3,7),(0,2,7),(0,5,7),(0,4,7,11),(0,3,7,10))
+        for already_on in (False,True):
+            for encoder in ('K1','ALGO'):
+                for kind,chord in enumerate(intervals):
+                    with self.subTest(already_on=already_on,encoder=encoder,kind=kind):
+                        edit=[f'spin {encoder} {kind}'] if kind else [f'spin {encoder} 1',f'spin {encoder} -1']
+                        output=scenario(['wait 800']+(['tap SEL'] if already_on else [])+
+                            ['press SEL','expect page 1']+edit+
+                            ['release SEL','expect chords 1','expect arp 0',
+                             'key 7 down',f'expect active {len(chord)}','wait 100',
+                             'key 7 up','expect active 0','expect led_keys 0'],midi_log=True)
+                        events=note_ons(output)
+                        self.assertEqual([n for _,n in events],[60+n for n in chord])
+                        self.assertEqual(len({t for t,_ in events}),1)
+
+    def test_sel_from_home_opens_chords_without_disabling_or_retriggering(self):
+        scenario(['wait 800','tap SEL','spin K1 1','key 7 down','expect active 3',
+            'tap HOME','out','tap SEL','expect page 1','expect chords 1','expect active 3',
+            'expect notes_out 0','expect notes_on 0','key 7 up','expect active 0'])
+
+    def test_saved_chords_reopen_with_sel_after_reboot(self):
+        output=scenario(['wait 800','tap SEL','spin K1 5','wait 1000','tap SAVE',
+            'expect saves 1','reboot','wait 800','expect chords 1','expect page 0',
+            'tap SEL','expect chords 1','expect chord_type 5','key 7 down',
+            'expect active 4','key 7 up','expect active 0'],midi_log=True)
+        self.assertEqual([n for _,n in note_ons(output)],[60,63,67,70])
+
+    def test_second_unmodified_sel_on_chrd_turns_chords_off_cleanly(self):
+        scenario(['wait 800','tap SEL','key 7 down','expect active 3',
+            'tap SEL','expect chords 0','expect active 1','expect led_keys 128',
+            'key 7 up','expect active 0','tap SEL','expect chords 1',
+            'key 7 down','expect active 3','key 7 up','expect active 0'])
+
+    def test_sel_held_velocity_and_octave_edits_do_not_disable_chords(self):
+        for already_on in (False,True):
+            for encoder in ('K2','K4'):
+                with self.subTest(already_on=already_on,encoder=encoder):
+                    scenario(['wait 800']+(['tap SEL'] if already_on else [])+
+                        ['press SEL',f'spin {encoder} 1','wait 500','release SEL',
+                         'expect chords 1','key 7 down','expect active 3',
+                         'key 7 up','expect active 0','expect led_keys 0'])
+
     def test_function_buttons_follow_active_sustain_modulation_and_record(self):
         scenario(['wait 800','tap SEL','expect led_buttons 2','press ENV',
             'expect led_buttons 6','release ENV','expect led_buttons 2',

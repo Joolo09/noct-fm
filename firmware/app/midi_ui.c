@@ -27,6 +27,7 @@ static struct {
     uint32_t heard_sustained[4],led_buttons,led_keys,led_dim_buttons,led_dim_keys;
     uint8_t heard_pedal;
     uint8_t revoicing;
+    uint8_t sel_used,sel_toggle_off;
 } ui;
 static uint8_t noct_recording;
 static uint32_t noct_transition;
@@ -201,6 +202,13 @@ static void cycle_clock(void)
 static void button_down(int b)
 {
     switch(b){
+    case B_SEL:
+        ui.sel_used=0;
+        /* SEL from another page opens the active chord mode. Only a second
+         * unmodified press on CHRD is an explicit request to turn it off. */
+        ui.sel_toggle_off=(uint8_t)(CHORD_ON && ui.page==PAGE_CHORD);
+        ui.page=PAGE_CHORD;
+        break;
     case B_ARP:ui.arp_used=0;ui.arp_t=plat_ms();ui.page=PAGE_ARP;break;
     case B_SEQ:ui.seq_used=0;ui.seq_t=plat_ms();ui.page=PAGE_GEN;break;
     case B_GLO:ui.glo_used=0;break;
@@ -235,7 +243,12 @@ static void button_up(int b)
     case B_ENV:if(ui.sustain)sustain_set(0);break;
     case B_LFO:engine_mod(0);break;
     case B_SAVE:if(!ui.save_done)save_now();break;
-    case B_SEL:chord_enable(!CHORD_ON);ui.page=1;say("CHORDS",CHORD_ON?CHORD_NAME[CHORD_TYPE]:"OFF");break;
+    case B_SEL:{
+        int on=ui.sel_used || !ui.sel_toggle_off;
+        if(CHORD_ON!=(uint8_t)on)chord_enable(on);
+        ui.page=PAGE_CHORD;
+        say("CHORDS",CHORD_ON?CHORD_NAME[CHORD_TYPE]:"OFF");break;
+    }
     case B_HOME:
         ui.page=PAGE_DAW;
         if(plat_ms()-ui.home_t>=600u){KNOB_MAP=!KNOB_MAP;ui.dirty=1;}
@@ -290,11 +303,24 @@ static void page_knob(int page,int i,int delta)
 }
 static void input(void)
 {
-    uint32_t btn=plat_buttons(),changed=btn^ui.btn;int i;int32_t e;
+    uint32_t btn=plat_buttons(),changed=btn^ui.btn;int i,sel_edit=0;int32_t e,turns[NE];
+    /* Snapshot turns before handling button release, so a final detent in
+     * the release scan still counts as editing, never as a second toggle. */
+    for(i=0;i<NE;i++){
+        turns[i]=plat_enc(i);
+        if(turns[i] && (i==EN_ALGO || (i>=EN_K1 && i<=EN_K4)))sel_edit=1;
+    }
     ui.btn=btn;
-    for(i=0;i<NB;i++)if(changed>>i&1u){if(btn>>i&1u)button_down(i);else button_up(i);}
+    for(i=0;i<NB;i++)if(changed>>i&1u){
+        if(btn>>i&1u)button_down(i);
+        else{
+            if(i==B_SEL && sel_edit)ui.sel_used=1;
+            button_up(i);
+        }
+    }
+    if((btn>>B_SEL&1u) && sel_edit)ui.sel_used=1;
     input_keys();midi_in();
-    for(i=0;i<NKNOBS;i++)if((e=plat_enc(EN_K1+i))!=0){
+    for(i=0;i<NKNOBS;i++)if((e=turns[EN_K1+i])!=0){
         if(btn>>B_ARP&1u)ui.arp_used=1;
         if(btn>>B_SEQ&1u)ui.seq_used=1;
         if(ui.page!=PAGE_DAW)page_knob(ui.page,i,e);
@@ -304,12 +330,12 @@ static void input(void)
         }
         ui.touched=(int8_t)i;ui.touch_until=plat_ms()+600u;
     }
-    if((e=plat_enc(EN_SELECT))!=0)local_tempo(e*10);
-    if((e=plat_enc(EN_ALGO))!=0){
+    if((e=turns[EN_SELECT])!=0)local_tempo(e*10);
+    if((e=turns[EN_ALGO])!=0){
         if(ui.page==PAGE_DAW)ui.page=CHORD_ON?PAGE_CHORD:PAGE_ARP;
         page_knob(ui.page,ui.page==PAGE_GEN?3:ui.page==PAGE_ARP?1:0,e);
     }
-    if((e=plat_enc(EN_PRESET))!=0){ui.page=(uint8_t)clamp(ui.page+e,0,PAGE_COUNT-1);ui.msg_until=0;}
+    if((e=turns[EN_PRESET])!=0){ui.page=(uint8_t)clamp(ui.page+e,0,PAGE_COUNT-1);ui.msg_until=0;}
     ui.master_raw+=((int32_t)plat_master()-ui.master_raw)/4;
     i=clamp(ui.master_raw*127/4000,0,127);
     if(i!=ui.master_sent && (i-ui.master_sent>1||ui.master_sent-i>1||i==0||i==127)){

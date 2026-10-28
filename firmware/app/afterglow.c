@@ -228,13 +228,15 @@ static void ag_scene(uint32_t now,int page,uint16_t accent)
     }else if(page==PAGE_CHORD){
         ag_constellation(now,accent);
         cv_text(9,4,&FONT_XS,"CHORD CONSTELLATION",accent);
-        cv_text(8,22,&FONT_M,CHORD_ON?CHORD_NAME[CHORD_TYPE]:"SINGLE",K_TEXT);
+        cv_rect(191,3,39,14,RGB(13,19,33));
+        noct_center(210,3,&FONT_XS,CHORD_ON?"ON":"OFF",CHORD_ON?K_MINT:K_DIM);
+        cv_text(8,22,&FONT_M,CHORD_ON?CHORD_NAME[CHORD_TYPE]:"CHORDS OFF",K_TEXT);
         sounding_text(text);cv_text(9,54,&FONT_XS,text,K_TEXT);
         for(int i=0;i<24;i++){
             unsigned e=glow.energy[(i+5)%12];int black=((0x054Au>>((i+5)%12))&1u)!=0;
             cv_rect(9+i*9,84,7,black?12:19,ag_mix(black?RGB(38,30,56):RGB(75,64,96),accent,e));
         }
-        cv_text(9,71,&FONT_XS,CHORD_ON?"SEL: CHORDS ON":"SEL: CHORDS OFF",K_DIM);
+        cv_text(9,71,&FONT_XS,CHORD_ON?"SEL AGAIN: OFF / KNOB: TYPE":"SEL: ENABLE CHORDS",K_DIM);
     }else if(page==PAGE_GEN || page==PAGE_FEEL){
         if(page==PAGE_GEN)ag_planet(now,accent);else ag_rhythm(accent);
         cv_text(9,3,&FONT_XS,page==PAGE_GEN?"COMPOSE  /  1 OF 2":"RHYTHM  /  2 OF 2",accent);
@@ -282,6 +284,7 @@ static void noct_draw(void)
     for(int i=0;i<5;i++){
         int x=8+i*45;cv_rect(x,21,43,15,i==selected?ag_mix(RGB(16,20,36),accent,28):RGB(11,13,26));
         noct_center(x+21,21,&FONT_XS,tabs[i],i==selected?accent:RGB(116,122,153));
+        if(i==1)cv_rect(x+36,26,3,3,CHORD_ON?K_MINT:RGB(45,47,72));
         if(i==selected){cv_rect(x,36,43,1,accent);cv_rect(x+10,37,23,1,ag_mix(RGB(25,21,45),accent,85));}
     }
     cv_band(38,106);ag_scene(now,page,accent);cv_blit(0,0);plat_yield();
