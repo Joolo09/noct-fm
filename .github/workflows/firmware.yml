@@ -22,6 +22,7 @@ jobs:
       - name: Test DAW integrations and C application
         run: |
           python tests/test_integrations.py
+          python tests/test_prepare_site.py
           sh build.sh --host --no-ble
           mkdir -p test-output
           firmware/app/build/host/noct-usb_host tests/noct.ctl test-output

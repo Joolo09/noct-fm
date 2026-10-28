@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 import { Updater } from './lib/fm1ota.js';
-import { verifyPackage } from './verify.js';
+import { verifyPackage } from './verify.js?v=2';
+import { readReleaseManifest, loadVerifiedRelease } from './releases.js?v=1';
 const $ = id => document.getElementById(id);
 let midi, updater, connected, meta, image, writing = false, loading = false;
 const supported = isSecureContext && !!navigator.requestMIDIAccess;
@@ -79,17 +80,25 @@ $('ports').addEventListener('change',async()=>{
 async function choose(raw,name){
   image=null;
   image=await verifyPackage(raw,meta);
+  packageReady(name);
+}
+function showBuild(){
+  $('build').textContent=`${meta.version} / USB MIDI / ${Math.round(meta.bytes/1024)} КБ / экспериментальная сборка`;
+}
+function packageReady(name){
   $('package').textContent=`${name} / SHA-256 проверен / ${meta.product}`;
   status('Файл проверен. Можно перейти к установке.',0);
   log(`Проверен ${meta.product}, SHA-256 ${meta.sha256}`);
 }
 $('load').addEventListener('click',async()=>{
   loading=true;image=null;$('error').textContent='';refresh();
+  status('Скачиваем и проверяем опубликованную сборку…',0);
   try{
-    const res=await fetch(meta.url,{cache:'no-store'});
-    if(!res.ok)throw new Error(`Не удалось скачать сборку: HTTP ${res.status}`);
-    await choose(new Uint8Array(await res.arrayBuffer()),meta.version);
-  }catch(e){error(e);}finally{loading=false;refresh();}
+    const release=await loadVerifiedRelease(location.href);
+    meta=release.meta;image=release.image;
+    showBuild();packageReady(meta.version);
+  }catch(e){$('package').textContent='Файл не прошёл проверку';error(e);status('Сборка не загружена. Запись не началась.',0);}
+  finally{loading=false;refresh();}
 });
 $('file').addEventListener('change',async e=>{
   image=null;loading=true;$('error').textContent='';refresh();
@@ -138,15 +147,10 @@ $('save-log').addEventListener('click',()=>{
 $('compatibility').textContent=supported?'Браузер поддерживает Web MIDI SysEx. Доступ запрашивается только по кнопке подключения.':'Нужен Chrome или Edge на компьютере и HTTPS. В этом браузере установка недоступна.';
 refresh();
 try{
-  const response=await fetch('./firmware.json',{cache:'no-store'});
-  if(!response.ok)throw new Error(`Манифест недоступен: HTTP ${response.status}`);
-  const manifest=await response.json();
-  if(manifest.schema!==1||!Array.isArray(manifest.builds))throw new Error('Неподдерживаемый манифест.');
-  meta=manifest.builds[0]||null;
+  const manifest=await readReleaseManifest(location.href);
+  meta=manifest.meta;
   if(meta){
-    const url=new URL(meta.url,location.href);
-    if(url.origin!==location.origin || !url.pathname.startsWith(new URL('./firmware/',location.href).pathname))throw new Error('Неверный адрес сборки.');
-    $('build').textContent=`${meta.version} / USB MIDI / ${Math.round(meta.bytes/1024)} КБ / экспериментальная сборка`;
+    showBuild();
   }else $('build').textContent=manifest.message||'Проверенная сборка пока не опубликована.';
 }catch(e){meta=null;$('build').textContent='Не удалось получить сборку.';error(e);}
 refresh();
