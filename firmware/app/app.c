@@ -33,6 +33,7 @@ void app_tick(void)
 {
     in_tick = 1;
     engine_tick();
+    strum_tick();
     in_tick = 0;
 }
 void app_ui_init(void) { ui_init(); }
@@ -48,7 +49,7 @@ void app_splash(void)
     cv_begin(240,96,RGB(9,11,23));
     noct_center(120,13,&FONT_M,"AFTERGLOW",AG_ACCENT[PAGE_GEN]);
     noct_center(120,47,&FONT_XS,"MIDI / FL STUDIO + LIVE",K_DIM);
-    noct_center(120,72,&FONT_XS,"NOCT 0.7.2",K_TEXT);cv_blit(0,144);
+    noct_center(120,72,&FONT_XS,"NOCT 0.8.0",K_TEXT);cv_blit(0,144);
 }
 
 #ifdef PLAT_HOST

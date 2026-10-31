@@ -43,6 +43,8 @@ void project_defaults(void)
     proj.bpm10 = 1200;
     proj.rsv[5] = 8; proj.rsv[6] = 60; proj.rsv[7] = 1; proj.rsv[8] = 85;
     proj.gen_seed=978437u;
+    proj.arp_gate=50;
+    proj.custom_n=5;proj.custom[1]=4;proj.custom[2]=7;proj.custom[3]=11;proj.custom[4]=14;   /* MAJ9 until learned */
     proj.clock = CLK_INT_OUT; /* AUTO in the MIDI engine */
     proj.sound = SOUND_OFF;
     proj.master_cc = 7;
@@ -65,13 +67,19 @@ void project_defaults(void)
 static int project_valid(void)
 {
     int b, k;
-    if (proj.magic != PROJ_MAGIC || (proj.format != PROJ_FORMAT && proj.format != 2u && proj.format != 3u && proj.format != 4u))
+    if (proj.magic != PROJ_MAGIC || (proj.format != PROJ_FORMAT && proj.format != 2u && proj.format != 3u && proj.format != 4u && proj.format != 5u))
         return 0;
-    if (proj.format == PROJ_FORMAT && proj.rsv[0] != 2u) return 0;
+    if (proj.format >= 5u && proj.rsv[0] != 2u) return 0;
     if (proj.format >= 4u && (proj.bpm10<200u || proj.bpm10>9990u || proj.rsv[1]>1u ||
-        proj.rsv[2]>5u || proj.rsv[4]>2u || proj.rsv[5]>16u || proj.rsv[6]>115u ||
+        (proj.format < 6u && (proj.rsv[2]>5u || proj.rsv[4]>2u)) || proj.rsv[5]>16u || proj.rsv[6]>115u ||
         proj.rsv[7]<1u || proj.rsv[7]>3u || proj.rsv[8]<10u || proj.rsv[8]>100u)) return 0;
-    if (proj.format == PROJ_FORMAT && (!proj.gen_seed || proj.gen_mode>2u || proj.gen_progression>3u)) return 0;
+    if (proj.format == 5u && (!proj.gen_seed || proj.gen_mode>2u || proj.gen_progression>3u)) return 0;
+    if (proj.format == PROJ_FORMAT && (!proj.gen_seed || proj.gen_mode>=NGMODES || proj.gen_progression>=NPROGS ||
+        proj.rsv[2]>=NCHORDS || proj.rsv[4]>=NGSCALES || proj.gen_swing>=NSWING || proj.gen_style>=NSTYLES ||
+        proj.gen_color>1u || proj.chord_voicing>=NVOICINGS || proj.chord_strum>=NSTRUMS || proj.key_scale>1u ||
+        proj.arp_gate<10u || proj.arp_gate>100u || proj.custom_n<2u || proj.custom_n>5u)) return 0;
+    if (proj.format == PROJ_FORMAT)
+        for (k = 0; k < 5; k++) if (proj.custom[k] > 36u) return 0;
     if (proj.chan > 14u || proj.vel < 1u || proj.vel > 127u || proj.octave < -3 || proj.octave > 3 ||
         proj.program > 127u || proj.bank >= NBANKS || proj.root > 11u || proj.scale >= NSCALES ||
         proj.human > 40u || proj.tempo < 40u || proj.tempo > 240u || proj.clock >= NCLK || proj.arp_on > 1u ||
@@ -107,6 +115,13 @@ int project_load(void)
             proj.clock=CLK_INT_OUT;proj.touch=0;
         }
         if(proj.format<5u){proj.gen_seed=978437u;proj.gen_mode=0;proj.gen_progression=0;proj.rsv[8]=85;}
+        if(proj.format<6u){
+            /* 0.8 additions: the old sound stays identical (straight, held triads, close chords, no strum) */
+            proj.gen_swing=proj.gen_style=proj.gen_color=proj.chord_voicing=proj.chord_strum=proj.key_scale=0;
+            proj.arp_gate=50;proj.human=0;
+            memset(proj.custom,0,sizeof proj.custom);memset(proj.rsv6,0,sizeof proj.rsv6);
+            proj.custom_n=5;proj.custom[1]=4;proj.custom[2]=7;proj.custom[3]=11;proj.custom[4]=14;
+        }
         proj.format = PROJ_FORMAT;
         proj.chan = proj.bank = proj.scale = proj.program = 0;
         proj.sound = SOUND_OFF; proj.in_mute = 1; proj.at_mode = AT_OFF;

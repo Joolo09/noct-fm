@@ -22,7 +22,7 @@ enum { OBJ_PROJ, OBJ_PANEL, OBJ_BLE, OBJ_NOBJ };
 void ctl_send(uint32_t pkt, uint32_t to);   /* to: TO_USB | TO_BLE (and TO_SYNTH, TO_NOSYNTH); main loop or the tick.
                                           * Ctl's own notes (to USB or BLE) also play the synth */
 #define PROJ_MAGIC 0x4E4F4354u           /* "CTL1" */
-#define PROJ_FORMAT 5u                   /* 5: reproducible composition settings */
+#define PROJ_FORMAT 6u                   /* 6: NOCT 0.8 style, swing, voicing, strum, scale lock, custom chord */
 #define NKNOBS 4
 #define NBANKS 4
 #define NTRACKS 4
@@ -31,7 +31,16 @@ void ctl_send(uint32_t pkt, uint32_t to);   /* to: TO_USB | TO_BLE (and TO_SYNTH
 enum { CLK_INT_OUT, CLK_INT, CLK_EXT, NCLK };
 enum { SOUND_IN, SOUND_KEYS, SOUND_OFF, NSOUND };   /* the onboard GM synth plays: Ctl's notes and MIDI in / Ctl's / nothing */            /* internal clock sent out / kept in / followed from MIDI in */
 enum { AT_OFF, AT_POLY, AT_CHAN, NAT };   /* aftertouch from the keys: none / per note / the channel's */
-enum { ARP_UP, ARP_DOWN, ARP_UPDOWN, ARP_RANDOM, ARP_PLAYED, NARP };
+enum { ARP_UP, ARP_DOWN, ARP_UPDOWN, ARP_RANDOM, ARP_PLAYED, ARP_CONVERGE, ARP_PEDAL, NARP };
+/* NOCT 0.8 musical ranges (validated on load) */
+#define NCHORDS 11                       /* keyboard chord qualities, CUSTOM last */
+#define NGSCALES 8                       /* COMPOSE scales */
+#define NGMODES 5                        /* MELODY CHORDS BOTH BASS FULL */
+#define NPROGS 8                         /* progressions per scale family */
+#define NSTYLES 4                        /* chord rhythm styles */
+#define NVOICINGS 6
+#define NSTRUMS 8
+#define NSWING 4
 enum { RATE_4, RATE_8, RATE_8T, RATE_16, RATE_16T, RATE_32, NRATE };
 
 typedef struct {
@@ -70,6 +79,17 @@ typedef struct {
     uint16_t bpm10;                      /* 20.0..999.0 BPM in tenths */
     uint32_t gen_seed;
     uint8_t gen_mode, gen_progression;
+    /* format 6 (NOCT 0.8): appended, so older saves load with these zeroed and are migrated */
+    uint8_t gen_swing;                   /* 0..3: straight, light, triplet, hard (generator and arp) */
+    uint8_t gen_style;                   /* chord rhythm: hold, pulse, offbeat, broken */
+    uint8_t gen_color;                   /* 0 triads, 1 sevenths */
+    uint8_t chord_voicing;               /* keyboard chords: close, inversions, open, drop 2, bass */
+    uint8_t chord_strum;                 /* 0..7: strum step index (see STRUM_MS) */
+    uint8_t key_scale;                   /* 0 chromatic keys, 1 snap to the COMPOSE key */
+    uint8_t arp_gate;                    /* 10..100 % of the arp step */
+    uint8_t custom_n;                    /* learned chord: number of notes 2..5 */
+    uint8_t custom[5];                   /* and its intervals above the played key, 0..36 */
+    uint8_t rsv6[7];
 } project_t;
 
 extern project_t proj;
