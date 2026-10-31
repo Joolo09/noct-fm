@@ -74,9 +74,9 @@ static int project_valid(void)
         (proj.format < 6u && (proj.rsv[2]>5u || proj.rsv[4]>2u)) || proj.rsv[5]>16u || proj.rsv[6]>115u ||
         proj.rsv[7]<1u || proj.rsv[7]>3u || proj.rsv[8]<10u || proj.rsv[8]>100u)) return 0;
     if (proj.format == 5u && (!proj.gen_seed || proj.gen_mode>2u || proj.gen_progression>3u)) return 0;
-    if (proj.format == PROJ_FORMAT && (!proj.gen_seed || proj.gen_mode>=NGMODES || proj.gen_progression>=NPROGS ||
+    if (proj.format == PROJ_FORMAT && (!proj.gen_seed || proj.gen_mode>=NGMODES || proj.gen_progression>NPROGS ||
         proj.rsv[2]>=NCHORDS || proj.rsv[4]>=NGSCALES || proj.gen_swing>=NSWING || proj.gen_style>=NSTYLES ||
-        proj.gen_color>1u || proj.chord_voicing>=NVOICINGS || proj.chord_strum>=NSTRUMS || proj.key_scale>1u ||
+        proj.gen_color>=NCOLORS || proj.gen_melody>=NMELODY || (proj.gen_var_lo|proj.gen_var_hi<<8)>=NVARS || proj.chord_voicing>=NVOICINGS || proj.chord_strum>=NSTRUMS || proj.key_scale>1u ||
         proj.arp_gate<10u || proj.arp_gate>100u || proj.custom_n<2u || proj.custom_n>5u)) return 0;
     if (proj.format == PROJ_FORMAT)
         for (k = 0; k < 5; k++) if (proj.custom[k] > 36u) return 0;
@@ -120,6 +120,7 @@ int project_load(void)
             proj.gen_swing=proj.gen_style=proj.gen_color=proj.chord_voicing=proj.chord_strum=proj.key_scale=0;
             proj.arp_gate=50;proj.human=0;
             memset(proj.custom,0,sizeof proj.custom);memset(proj.rsv6,0,sizeof proj.rsv6);
+            proj.gen_var_lo=proj.gen_var_hi=proj.gen_melody=0;
             proj.custom_n=5;proj.custom[1]=4;proj.custom[2]=7;proj.custom[3]=11;proj.custom[4]=14;
         }
         proj.format = PROJ_FORMAT;

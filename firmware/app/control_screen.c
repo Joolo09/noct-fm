@@ -7,13 +7,15 @@ static char *note_text(char *out,int pitch)
     if(pitch<12)return put_s(out,"-1");
     return put_u(out,(uint32_t)(pitch/12-1));
 }
-/* A chord symbol from the composer's plan, e.g. "Am7", "F", "Bdim", "Gmaj7" (FONT_XS/S/B only: lowercase). */
-static char *chord_symbol(char *out,const composition_t *p,int bar,unsigned scale)
+/* A chord symbol from the composer's plan, e.g. "Am7", "F", "Cadd9", "Dsus2" (FONT_XS/S/B only: lowercase). */
+static char *chord_symbol(char *out,const composition_t *p,int half,unsigned scale)
 {
-    const uint8_t *st=SCALE_STEPS[scale%NGSCALES];int degree=p->degree[bar&3];
-    int q=degree_quality(scale,degree),pc=((int)GEN_ROOT+st[degree%7])%12;
+    const uint8_t *st=SCALE_STEPS[scale%NGSCALES];half&=7;int degree=p->degree[half];
+    int q=degree_quality(scale,degree),pc=((int)GEN_ROOT+st[degree%7])%12;unsigned color=p->color[half];
     out=put_s(out,NOTE_NAME[pc]);
-    if(p->voices>3){
+    if(color==CO_SUS2)return put_s(out,"sus2");
+    if(color==CO_ADD9)return put_s(out,q==1?"madd9":q==2?"dim9":"add9");
+    if(color==CO_SEVENTH){
         int seventh=scale_pitch(degree+6,st)-scale_pitch(degree,st);
         if(q==0)return put_s(out,seventh==11?"maj7":"7");
         if(q==1)return put_s(out,seventh==11?"mM7":"m7");
@@ -21,6 +23,13 @@ static char *chord_symbol(char *out,const composition_t *p,int bar,unsigned scal
         return put_s(out,"+M7");
     }
     return put_s(out,q==1?"m":q==2?"dim":q==3?"+":"");
+}
+/* A bar's chords: "Am" or "F/G" when it changes at beat 3. */
+static char *bar_symbol(char *out,const composition_t *p,int bar,unsigned scale)
+{
+    out=chord_symbol(out,p,bar*2,scale);
+    if(p->split>>(bar&3)&1u){out=put_s(out,"/");out=chord_symbol(out,p,bar*2+1,scale);}
+    return out;
 }
 static const char *run_label(void)
 {
@@ -51,7 +60,7 @@ static void knob_text(int page,int knob,char *label,char *value,int *level)
         if(knob==0){put_s(value,GEN_MODE_NAME[proj.gen_mode]);*level=knob_level(proj.gen_mode,0,NGMODES-1);}
         if(knob==1){put_s(value,SCALE_NAME[GEN_SCALE]);*level=knob_level(GEN_SCALE,0,NGSCALES-1);}
         if(knob==2){note_text(value,music_midi_pitch(GEN_ROOT+12*proj.octave));*level=knob_level(GEN_ROOT,24,96);}
-        if(knob==3){harmony_text(value,GEN_SCALE,proj.gen_progression);*level=knob_level(proj.gen_progression,0,NPROGS-1);}
+        if(knob==3){if(proj.gen_progression>=NPROGS)put_s(value,"AUTO");else harmony_text(value,GEN_SCALE,proj.gen_progression);*level=knob_level(proj.gen_progression,0,NPROGS);}
     }else if(page==PAGE_FEEL){
         static const char *const names[4]={"NOTES/BAR","LENGTH","SWING","HUMAN"};put_s(label,names[knob]);
         if(knob==0){put_u(value,GEN_DENSITY);*level=knob_level(GEN_DENSITY,0,16);}
@@ -59,11 +68,11 @@ static void knob_text(int page,int knob,char *label,char *value,int *level)
         if(knob==2){put_s(value,SWING_NAME[proj.gen_swing]);*level=knob_level(proj.gen_swing,0,NSWING-1);}
         if(knob==3){if(proj.human)put_s(put_u(value,proj.human*100u/40u),"%");else put_s(value,"FLAT");*level=knob_level(proj.human,0,40);}
     }else if(page==PAGE_STYLE){
-        static const char *const names[4]={"CHORD STYLE","COLOR","RANGE","VELOCITY"};put_s(label,names[knob]);
+        static const char *const names[4]={"CHORD STYLE","COLOR","RANGE","MELODY"};put_s(label,names[knob]);
         if(knob==0){put_s(value,STYLE_NAME[proj.gen_style]);*level=knob_level(proj.gen_style,0,NSTYLES-1);}
-        if(knob==1){put_s(value,proj.gen_color?"7THS":"TRIADS");*level=proj.gen_color?127:0;}
+        if(knob==1){put_s(value,COLOR_NAME[proj.gen_color%NCOLORS]);*level=knob_level(proj.gen_color,0,NCOLORS-1);}
         if(knob==2){put_s(put_u(value,GEN_OCTAVES)," OCT");*level=knob_level(GEN_OCTAVES,1,3);}
-        if(knob==3){put_u(value,proj.vel);*level=proj.vel;}
+        if(knob==3){put_s(value,MELODY_NAME[proj.gen_melody%NMELODY]);*level=knob_level(proj.gen_melody,0,NMELODY-1);}
     }else if(page==PAGE_ARP){
         static const char *const names[4]={"RATE","ORDER","RANGE","GATE"};put_s(label,names[knob]);
         if(knob==0){put_s(value,RATE_NAME[proj.arp_rate]);*level=knob_level(proj.arp_rate,0,NRATE-1);}

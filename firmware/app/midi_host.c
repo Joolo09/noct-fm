@@ -69,6 +69,10 @@ int app_expect(const char *what,int *got)
     else if(!strcmp(what,"human"))n=proj.human;
     else if(!strcmp(what,"style"))n=proj.gen_style;
     else if(!strcmp(what,"color"))n=proj.gen_color;
+    else if(!strcmp(what,"variation"))n=(int)GEN_VAR;
+    else if(!strcmp(what,"melody"))n=proj.gen_melody;
+    else if(!strcmp(what,"character"))n=generator.plan[generator.active].character;
+    else if(!strcmp(what,"split"))n=generator.plan[generator.active].split;
     else if(!strcmp(what,"voicing"))n=proj.chord_voicing;
     else if(!strcmp(what,"strum"))n=proj.chord_strum;
     else if(!strcmp(what,"key_scale"))n=proj.key_scale;

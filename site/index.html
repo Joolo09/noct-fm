@@ -26,7 +26,7 @@
   <main>
     <section class="hero">
       <div>
-        <p class="tag">M-VAVE FM-1 · v0.8.0 · USB MIDI</p>
+        <p class="tag">M-VAVE FM-1 · v0.8.1 · USB MIDI</p>
         <h1 data-i18n="hero.title">MIDI controller for FL&nbsp;Studio and Ableton&nbsp;Live</h1>
         <p class="lead" data-i18n="hero.lead">This firmware turns the FM-1 into a DAW controller: keys, chords, a melody generator, an arpeggiator, mixer knobs and transport. The built-in synth is off — your DAW makes the sound.</p>
         <div class="cta"><a class="btn" href="#install" data-i18n="cta.install">Install</a><a class="btn ghost" href="./downloads/NOCT-DAW-scripts.zip" download data-i18n="cta.scripts">DAW scripts</a></div>
@@ -34,7 +34,7 @@
           <li><b>27</b><span data-i18n="fact.keys">keys, F3–G5, ±3 octaves</span></li>
           <li><b>7</b><span data-i18n="fact.pages">pages of 4 knobs</span></li>
           <li><b>11</b><span data-i18n="fact.chords">chord types</span></li>
-          <li><b>8</b><span data-i18n="fact.scales">generator scales</span></li>
+          <li><b>1000</b><span data-i18n="fact.phrases">phrases per seed, on the ALGORITHM dial</span></li>
         </ul>
       </div>
       <figure class="screen"><img src="./noct-fm.gif" width="240" height="240" alt="FM-1 screen running NOCT"><figcaption data-i18n="hero.caption">a real firmware frame, 240×240</figcaption></figure>
@@ -62,9 +62,9 @@
       <div class="pages">
         <article><img src="./screens/daw.png" width="240" height="240" alt="DAW page" loading="lazy"><div><h3>DAW</h3><p data-i18n="p.daw">The knobs control the selected track's mixer. Hold HOME for 0.6 s for MIDI MAP — free CC24–27 for any parameter.</p><dl><dt>K1</dt><dd data-i18n="p.daw1">Volume</dd><dt>K2</dt><dd data-i18n="p.daw2">Pan</dd><dt>K3</dt><dd>Stereo / Send A</dd><dt>K4</dt><dd data-i18n="p.daw4">Channel / Send B</dd></dl></div></article>
         <article><img src="./screens/chords.png" width="240" height="240" alt="CHORDS page" loading="lazy"><div><h3>CHORDS</h3><p data-i18n="p.chords">One key plays a whole chord. IN KEY builds chords in the key. Hold SEL and press 2–5 keys to store a chord.</p><dl><dt>K1</dt><dd data-i18n="p.chords1">Type: MAJ, MIN, 7, IN KEY, MEMORY…</dd><dt>K2</dt><dd data-i18n="p.chords2">Inversion, OPEN, DROP 2, +BASS</dd><dt>K3</dt><dd data-i18n="p.chords3">Strum 6–70 ms</dd><dt>K4</dt><dd data-i18n="p.chords4">Keys locked to the scale</dd></dl></div></article>
-        <article><img src="./screens/compose.png" width="240" height="240" alt="COMPOSE page" loading="lazy"><div><h3>COMPOSE</h3><p data-i18n="p.compose">The generator writes a 4-bar phrase: motif, answer, contrast, ending on the tonic. Below: chord names and a piano roll.</p><dl><dt>K1</dt><dd>MELODY, CHORDS, BOTH, BASS, FULL</dd><dt>K2</dt><dd data-i18n="p.compose2">Scale (8)</dd><dt>K3</dt><dd data-i18n="p.compose3">Root</dd><dt>K4</dt><dd data-i18n="p.compose4">Progression (8)</dd></dl></div></article>
+        <article><img src="./screens/compose.png" width="240" height="240" alt="COMPOSE page" loading="lazy"><div><h3>COMPOSE</h3><p data-i18n="p.compose">The generator writes a 4-bar phrase: motif, answer, contrast, ending on the tonic. Turn ALGORITHM to browse 1000 variations — melody, rhythm, bass and (with AUTO) chords.</p><dl><dt>K1</dt><dd>MELODY, CHORDS, BOTH, BASS, FULL</dd><dt>K2</dt><dd data-i18n="p.compose2">Scale (8)</dd><dt>K3</dt><dd data-i18n="p.compose3">Root</dd><dt>K4</dt><dd data-i18n="p.compose4">Progression (24) or AUTO</dd></dl></div></article>
         <article><img src="./screens/rhythm.png" width="240" height="240" alt="RHYTHM page" loading="lazy"><div><h3>RHYTHM</h3><p data-i18n="p.rhythm">Density and groove. Swing applies to the generator and to the arp on 1/8 and 1/16.</p><dl><dt>K1</dt><dd data-i18n="p.rhythm1">Notes per bar, 0–16</dd><dt>K2</dt><dd data-i18n="p.rhythm2">Note length</dd><dt>K3</dt><dd data-i18n="p.rhythm3">Swing 50–75%</dd><dt>K4</dt><dd data-i18n="p.rhythm4">HUMAN — velocity accents</dd></dl></div></article>
-        <article><img src="./screens/style.png" width="240" height="240" alt="STYLE page" loading="lazy"><div><h3>STYLE</h3><p data-i18n="p.style">How the generator's chords play: held, on the beats, on the offbeats or broken.</p><dl><dt>K1</dt><dd>HOLD, PULSE, OFFBEAT, BROKEN</dd><dt>K2</dt><dd data-i18n="p.style2">Triads / sevenths</dd><dt>K3</dt><dd data-i18n="p.style3">Range 1–3 octaves</dd><dt>K4</dt><dd>Velocity</dd></dl></div></article>
+        <article><img src="./screens/style.png" width="240" height="240" alt="STYLE page" loading="lazy"><div><h3>STYLE</h3><p data-i18n="p.style">How the chords play and what kind of melody you get: flow, arpeggio, riff, sequence, pedal, leaps, call and response.</p><dl><dt>K1</dt><dd>HOLD, PULSE, OFFBEAT, BROKEN</dd><dt>K2</dt><dd data-i18n="p.style2">Triads, 7ths, add9, sus2, mixed</dd><dt>K3</dt><dd data-i18n="p.style3">Range 1–3 octaves</dd><dt>K4</dt><dd data-i18n="p.style4">Melody character (AUTO + 7)</dd></dl></div></article>
         <article><img src="./screens/arp.png" width="240" height="240" alt="ARP page" loading="lazy"><div><h3>ARP</h3><p data-i18n="p.arp">Arpeggiates the held notes. ARP + ENV latches them hands-free.</p><dl><dt>K1</dt><dd data-i18n="p.arp1">Rate 1/4 … 1/32</dd><dt>K2</dt><dd>UP, DOWN, RANDOM, CONVERGE, PEDAL…</dd><dt>K3</dt><dd data-i18n="p.arp3">Octaves 1–3</dd><dt>K4</dt><dd data-i18n="p.arp4">Note length</dd></dl></div></article>
         <article><img src="./screens/sync.png" width="240" height="240" alt="SYNC page" loading="lazy"><div><h3>SYNC</h3><p data-i18n="p.sync">Tempo source. On this page GLO is tap tempo, and the new BPM goes straight to the DAW.</p><dl><dt>K1</dt><dd>AUTO, INTERNAL, EXTERNAL</dd><dt>K2</dt><dd>BPM</dd><dt>K3</dt><dd>Velocity</dd><dt>K4</dt><dd data-i18n="p.sync4">Key sensitivity</dd></dl></div></article>
       </div>
@@ -75,11 +75,12 @@
       <div class="keys">
         <div><kbd>HOME</kbd><span data-i18n="b.home">Knobs → DAW. Hold: MIXER / MIDI MAP</span></div>
         <div><kbd>PRESET</kbd><span data-i18n="b.preset">Flip pages</span></div>
+        <div><kbd>ALGORITHM</kbd><span data-i18n="b.algo">Browse phrases #000–999</span></div>
         <div><kbd>SEL</kbd><span data-i18n="b.sel">Chords on/off</span></div>
         <div><kbd>SEL</kbd>+<kbd data-i18n="b.keys">keys</kbd><span data-i18n="b.learn">Store a chord</span></div>
         <div><kbd>SEQ</kbd><span data-i18n="b.seq">Generator start / stop</span></div>
         <div><kbd>SEQ</kbd>+<kbd data-i18n="b.key">key</kbd><span data-i18n="b.root">Generator root</span></div>
-        <div><kbd>EDIT</kbd><span data-i18n="b.edit">New melody</span></div>
+        <div><kbd>EDIT</kbd><span data-i18n="b.edit">New seed: 1000 new phrases</span></div>
         <div><kbd>EDIT</kbd> <span class="hold" data-i18n="b.hold">0.6 s</span><span data-i18n="b.edithold">New melody and chords</span></div>
         <div><kbd>SEQ</kbd>+<kbd>EDIT</kbd><span data-i18n="b.undo">Undo, up to 8 steps</span></div>
         <div><kbd>ARP</kbd><span data-i18n="b.arp">Arpeggiator on/off</span></div>
@@ -120,7 +121,7 @@
     </section>
   </main>
 
-  <footer><span>NOCT FM 0.8.0</span><span data-i18n="footer">Built on CTL-1, fm1-base and felucca-bsp · <a href="./LICENSE">MPL-2.0</a> · not affiliated with M-VAVE, Image-Line or Ableton</span></footer>
+  <footer><span>NOCT FM 0.8.1</span><span data-i18n="footer">Built on CTL-1, fm1-base and felucca-bsp · <a href="./LICENSE">MPL-2.0</a> · not affiliated with M-VAVE, Image-Line or Ableton</span></footer>
   <script type="module" src="./installer.js?v=3"></script>
 </body>
 </html>

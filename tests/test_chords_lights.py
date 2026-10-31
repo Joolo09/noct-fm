@@ -10,7 +10,7 @@ class ChordLightTests(unittest.TestCase):
     def test_sel_held_quality_edit_stays_on_and_sends_simultaneous_chord(self):
         intervals=((0,4,7),(0,3,7),(0,2,7),(0,5,7),(0,4,7,11),(0,3,7,10))
         for already_on in (False,True):
-            for encoder in ('K1','ALGO'):
+            for encoder in ('K1',):
                 for kind,chord in enumerate(intervals):
                     with self.subTest(already_on=already_on,encoder=encoder,kind=kind):
                         edit=[f'spin {encoder} {kind}'] if kind else [f'spin {encoder} 1',f'spin {encoder} -1']
