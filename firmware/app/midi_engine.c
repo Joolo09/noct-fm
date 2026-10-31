@@ -35,9 +35,11 @@ static int arp_held(void)
     for(i=0;i<128;i++)if(arp_engine.refs[i])return 1;
     return 0;
 }
+/* Runs in the 1 kHz timer: its work buffers are static (not 256 bytes of interrupt stack). */
+static uint8_t arp_sorted[128],arp_sequence[128];
 static void arp_step(void)
 {
-    uint8_t sorted[128], sequence[128];uint32_t seen[4]={0,0,0,0};
+    uint8_t *sorted=arp_sorted,*sequence=arp_sequence;uint32_t seen[4]={0,0,0,0};
     int i,j,o,n=0,index=0;
     uint32_t f=plat_lock();
     arp_off();
@@ -64,20 +66,38 @@ static void arp_step(void)
             arp_engine.random^=arp_engine.random>>17;
             arp_engine.random^=arp_engine.random<<5;
             index=(int)(arp_engine.random%(uint32_t)n);
+        }else if(proj.arp_mode==ARP_CONVERGE){
+            /* outside in: lowest, highest, second lowest, second highest ... */
+            int at=(int)(p%(uint32_t)n);
+            index=at&1?n-1-at/2:at/2;
+        }else if(proj.arp_mode==ARP_PEDAL){
+            /* the lowest note alternates with the others, upwards */
+            int at=n>1?(int)(p%(uint32_t)(2*n-2)):0;
+            index=n>1?(at&1?1+at/2:0):0;
         }else index=(int)(p%(uint32_t)n);
         arp_engine.position=(p+1u)%1000000u;
         arp_engine.note=sequence[index];
         arp_engine.channel=proj.chan;
-        arp_engine.gate=(uint8_t)(RATE_TICKS[proj.arp_rate]/2u);
+        {
+            unsigned gate=RATE_TICKS[proj.arp_rate]*(unsigned)clamp(proj.arp_gate,10,100)/100u;
+            arp_engine.gate=(uint8_t)(gate?gate:1u);
+        }
         arp_engine.gate_ms=plat_ms();
         bus_on(sequence[index],proj.vel);
     }
     plat_unlock(f);
 }
+/* Swing delays the off-beat 1/8 or 1/16 (not triplets, quarters or 1/32). */
+static int arp_due(uint32_t ticks)
+{
+    unsigned rate=RATE_TICKS[proj.arp_rate],pair=2u*rate,at=ticks%pair,delay=0;
+    if(proj.arp_rate==RATE_8 || proj.arp_rate==RATE_16)delay=SWING_TICKS[proj.gen_swing%NSWING]*rate/6u;
+    return at==0u || at==rate+delay;
+}
 static void arp_clock(void)
 {
     if(arp_engine.gate && !--arp_engine.gate)arp_off();
-    if(proj.arp_on && arp_engine.count && arp_engine.ticks%RATE_TICKS[proj.arp_rate]==0u)arp_step();
+    if(proj.arp_on && arp_engine.count && arp_due(arp_engine.ticks))arp_step();
     generator_clock();
     arp_engine.ticks++;
 }
@@ -212,6 +232,6 @@ static void midi_engine_init(void)
     bus_sustain(0);
     visual_note_serial=0;visual_last_note=0;
     memset(&arp_engine,0,sizeof arp_engine);arp_engine.note=255u;arp_engine.random=2463534242u;
-    memset(&generator,0,sizeof generator);generator.melody_note=255;generator_regenerate();
+    memset(&generator,0,sizeof generator);generator.melody_note=generator.bass_note=255;generator_regenerate();
     for(int i=0;i<128;i++)note_owners[i]=0;
 }

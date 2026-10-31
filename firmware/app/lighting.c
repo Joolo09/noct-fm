@@ -25,7 +25,7 @@ static void lighting_update(void)
     if(proj.octave>0)buttons|=1u<<B_OCTUP;
     if(proj.octave<0)buttons|=1u<<B_OCTDN;
     if(ui.saved_until && now<ui.saved_until)buttons|=1u<<B_SAVE;
-    static const uint8_t page_button[PAGE_COUNT]={B_HOME,B_SEL,B_SEQ,B_SEQ,B_ARP,B_GLO};
+    static const uint8_t page_button[PAGE_COUNT]={B_HOME,B_SEL,B_SEQ,B_SEQ,B_SEQ,B_ARP,B_GLO};
     unsigned selected=page_button[ui.page];
     if(ui.page==PAGE_DAW || now%1400u<180u)buttons|=1u<<selected;
     /* All available controls remain dim; steady bright means active or held. */

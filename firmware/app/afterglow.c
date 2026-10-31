@@ -3,7 +3,7 @@
  * Two 240px strips; no full-screen buffer, assets or allocation in the timer.
  */
 static const int8_t AG_SIN[64]={0,12,25,37,49,60,71,81,90,98,106,112,117,122,125,126,127,126,125,122,117,112,106,98,90,81,71,60,49,37,25,12,0,-12,-25,-37,-49,-60,-71,-81,-90,-98,-106,-112,-117,-122,-125,-126,-127,-126,-125,-122,-117,-112,-106,-98,-90,-81,-71,-60,-49,-37,-25,-12};
-static const uint16_t AG_ACCENT[PAGE_COUNT]={RGB(118,241,212),RGB(255,161,205),RGB(190,160,255),RGB(255,190,121),RGB(116,211,255),RGB(122,238,221)};
+static const uint16_t AG_ACCENT[PAGE_COUNT]={RGB(118,241,212),RGB(255,161,205),RGB(190,160,255),RGB(255,190,121),RGB(255,140,128),RGB(116,211,255),RGB(122,238,221)};
 static struct {
     uint32_t serial,page_at,last;
     uint8_t page,pulse,energy[12];
@@ -33,6 +33,38 @@ static void ag_ring(int x,int y,int rx,int ry,unsigned spin,uint16_t color,int h
         int nx=ag_sin(i+18u,rx),ny=ag_sin(i+2u,ry);
         cv_line(x+dx,y+dy-dx/5,x+nx,y+ny-nx/5,color);
         if((i+spin)%16u==0)cv_rect(x+dx,y+dy-dx/5,2,1,color);
+    }
+}
+/* A panel with 1 px rounded corners and a lit top edge. */
+static void ag_panel(int x,int y,int w,int h,uint16_t fill,uint16_t edge)
+{
+    cv_rect(x+1,y,w-2,1,edge);
+    cv_rect(x,y+1,w,h-2,fill);
+    cv_rect(x+1,y+h-1,w-2,1,fill);
+    cv_rect(x,y+1,1,h-2,ag_mix(fill,edge,120));
+}
+/* A 270 degree knob ring: 22 segments, filled to level 0..127, the head brighter. */
+static void ag_arc(int x,int y,int r,int level,uint16_t accent,int hot)
+{
+    int head=level*21/127;
+    for(int j=0;j<22;j++){
+        unsigned a=24u+(unsigned)(j*48/21);
+        int dx=ag_sin(a+16u,r),dy=ag_sin(a,r);
+        uint16_t c=j<=head?(j==head?(hot?K_HOT:K_TEXT):ag_mix(RGB(40,38,64),hot?K_HOT:accent,200)):RGB(46,44,70);
+        cv_rect(x+dx-1,y+dy-1,2,2,c);
+    }
+    cv_rect(x+ag_sin(24u+(unsigned)(head*48/21)+16u,r-4),y+ag_sin(24u+(unsigned)(head*48/21),r-4),1,1,hot?K_HOT:accent);
+}
+/* The four-bar progression as chord symbols, the playing bar lit. */
+static void ag_chips(int y,uint16_t accent)
+{
+    const composition_t *p=&generator.plan[generator.active];char name[12];
+    unsigned bar=generator.step/16u;
+    for(int i=0;i<4;i++){
+        int x=8+i*57,on=generator.running && (unsigned)i==bar;
+        ag_panel(x,y,54,14,on?ag_mix(RGB(20,20,40),accent,120):RGB(18,20,38),on?K_TEXT:ag_mix(RGB(40,38,66),accent,70));
+        chord_symbol(name,p,i,GEN_SCALE);
+        noct_center(x+27,y+1,&FONT_XS,name,on?K_TEXT:ag_mix(K_DIM,accent,60));
     }
 }
 static void ag_tick(uint32_t now,int page)
@@ -140,34 +172,48 @@ static void ag_constellation(uint32_t now,uint16_t accent)
 static void ag_roll(uint16_t accent)
 {
     const composition_t *p=&generator.plan[generator.active];unsigned bar=generator.step/16u;
-    int low=127,high=0,previous_x=-1,previous_y=0;
-    for(unsigned i=0;i<16;i++)if(p->rhythm[bar]>>i&1u){
-        int pitch=p->melody[bar*16u+i];if(pitch<low)low=pitch;if(pitch>high)high=pitch;
+    int line=GEN_HAS_MELODY(p->mode),bassline=!line && GEN_HAS_BASS(p->mode);
+    const uint8_t *notes=bassline?p->bass:p->melody;
+    const uint16_t *rhythm=bassline?p->bass_rhythm:p->rhythm;
+    int low=127,high=0,previous_x=-1,previous_y=0,chords_only=p->mode==GM_CHORDS;
+    for(unsigned i=0;i<16;i++)if(rhythm[bar]>>i&1u){
+        int pitch=notes[bar*16u+i];if(pitch<low)low=pitch;if(pitch>high)high=pitch;
     }
-    cv_rect(8,60,224,43,RGB(12,16,33));
-    for(int row=0;row<5;row++)cv_rect(9,64+row*8,222,1,RGB(29,32,54));
-    if(p->mode!=0)for(int v=0;v<3;v++){
-        int y=p->mode==1?69+v*12:88+v*5;
-        cv_rect(10,y,218,3,ag_mix(RGB(36,30,61),accent,p->mode==1?155:55));
-        cv_rect(10,y,3,4,accent);
-        if(p->mode==1){char note[12];note_text(note,p->chords[bar][v]);cv_text(195,y-5,&FONT_XS,note,K_TEXT);}
+    ag_panel(8,60,224,44,RGB(12,16,33),ag_mix(RGB(39,34,62),accent,75));
+    for(int row=0;row<5;row++)cv_rect(9,64+row*8,222,1,RGB(24,27,48));
+    if(GEN_HAS_CHORDS(p->mode))for(int i=0;i<16;i++)if(chord_trigger(p->style,(unsigned)i)){
+        int x=10+i*14,len=(int)(chord_length(p->style)/6u)*14*p->gate/100;
+        if(x+len>228)len=228-x;
+        if(len<4)len=4;
+        for(int v=0;v<p->voices;v++){
+            if(p->style==ST_BROKEN && v!=(i/2)%p->voices)continue;
+            int y=chords_only?66+v*(p->voices>3?9:12):92+v*3;
+            cv_rect(x,y,len-1,chords_only?4:2,ag_mix(RGB(36,30,61),accent,chords_only?150:60));
+            cv_rect(x,y,2,chords_only?4:2,accent);
+        }
     }
+    if(chords_only)for(int v=0;v<p->voices;v++){
+        char note[12];note_text(note,p->chords[bar][v]);
+        cv_text(198,(p->voices>3?62:63)+v*(p->voices>3?9:12),&FONT_XS,note,K_TEXT);
+    }
+    if(GEN_HAS_BASS(p->mode) && line)for(int i=0;i<16;i++)if(p->bass_rhythm[bar]>>i&1u)
+        cv_rect(10+i*14,100,9,2,ag_mix(RGB(40,30,50),K_HOT,150));
     for(int i=0;i<16;i++){
-        int x=10+i*14,hit=(p->rhythm[bar]>>i)&1u;
-        if(i%4==0)cv_rect(x-1,61,1,41,RGB(43,39,69));
-        if(p->mode!=1 && hit){
-            int y=65+(high-p->melody[bar*16u+(unsigned)i])*(p->mode==2?19:31)/(high-low+1);
-            if(previous_x>=0)cv_line(previous_x+7,previous_y+1,x,y+1,ag_mix(RGB(27,26,48),accent,65));
-            cv_rect(x-1,y-1,11,6,ag_mix(RGB(18,19,39),accent,35));
-            cv_rect(x,y,9,4,accent);cv_rect(x,y,9,1,ag_mix(accent,K_TEXT,65));
+        int x=10+i*14,hit=(rhythm[bar]>>i)&1u;
+        if(i%4==0)cv_rect(x-1,61,1,42,RGB(43,39,69));
+        if(!chords_only && hit){
+            int span=line && GEN_HAS_CHORDS(p->mode)?24:34;
+            int y=64+(high-notes[bar*16u+(unsigned)i])*span/(high-low+1);
+            uint16_t c=bassline?K_HOT:accent;
+            if(previous_x>=0)cv_line(previous_x+7,previous_y+1,x,y+1,ag_mix(RGB(27,26,48),c,65));
+            cv_rect(x-1,y-1,11,6,ag_mix(RGB(18,19,39),c,35));
+            cv_rect(x,y,9,4,c);cv_rect(x,y,9,1,ag_mix(c,K_TEXT,65));
             previous_x=x;previous_y=y;
         }
         if(generator.running && (unsigned)i==generator.step%16u){
-            cv_rect(x-1,61,1,41,K_HOT);cv_rect(x-3,60,5,2,K_HOT);
-            cv_rect(x,99,9,3,ag_mix(accent,K_TEXT,50));
+            cv_rect(x-1,61,1,42,K_HOT);cv_rect(x-3,60,5,2,K_HOT);
         }
     }
-    cv_rect(8,60,224,1,ag_mix(RGB(39,34,62),accent,75));
 }
 static void ag_rhythm(uint16_t accent)
 {
@@ -215,6 +261,18 @@ static void ag_arp(uint16_t accent)
         cv_rect(x,101-h,10,1,active?K_TEXT:accent);
     }
 }
+/* STYLE: the chord stack of the playing bar, lowest voice at the bottom. */
+static void ag_style(uint16_t accent)
+{
+    const composition_t *p=&generator.plan[generator.active];unsigned bar=generator.step/16u;char note[12];
+    for(int v=0;v<p->voices;v++){
+        int y=44-v*12;
+        ag_panel(176,y,56,11,ag_mix(RGB(22,18,38),accent,50+v*25),ag_mix(accent,K_TEXT,v*50));
+        note_text(note,p->chords[bar][v]);noct_center(204,y-1,&FONT_XS,note,K_TEXT);
+    }
+    chord_symbol(note,p,(int)bar,GEN_SCALE);
+    noct_center(158,43,&FONT_XS,note,accent);
+}
 static void ag_scene(uint32_t now,int page,uint16_t accent)
 {
     char text[64],*p;
@@ -228,39 +286,58 @@ static void ag_scene(uint32_t now,int page,uint16_t accent)
     }else if(page==PAGE_CHORD){
         ag_constellation(now,accent);
         cv_text(9,4,&FONT_XS,"CHORD CONSTELLATION",accent);
-        cv_rect(191,3,39,14,RGB(13,19,33));
+        ag_panel(191,3,39,14,RGB(13,19,33),CHORD_ON?K_MINT:RGB(40,44,66));
         noct_center(210,3,&FONT_XS,CHORD_ON?"ON":"OFF",CHORD_ON?K_MINT:K_DIM);
-        cv_text(8,22,&FONT_M,CHORD_ON?CHORD_NAME[CHORD_TYPE]:"CHORDS OFF",K_TEXT);
-        sounding_text(text);cv_text(9,54,&FONT_XS,text,K_TEXT);
+        cv_text(8,19,&FONT_M,CHORD_ON?CHORD_NAME[CHORD_TYPE]:"CHORDS OFF",K_TEXT);
+        p=put_s(text,VOICING_NAME[proj.chord_voicing]);
+        if(STRUM_MS[proj.chord_strum]){p=put_s(p,"  STRUM ");p=put_u(p,STRUM_MS[proj.chord_strum]);}
+        if(proj.key_scale||CHORD_TYPE==CH_KEY||CHORD_TYPE==CH_KEY7){p=put_s(p,"  ");p=put_s(p,NOTE_NAME[GEN_ROOT%12u]);p=put_s(p," ");put_s(p,SCALE_NAME[GEN_SCALE]);}
+        cv_text(9,42,&FONT_XS,text,K_DIM);
+        sounding_text(text);cv_text(9,56,&FONT_XS,text,K_TEXT);
         for(int i=0;i<24;i++){
             unsigned e=glow.energy[(i+5)%12];int black=((0x054Au>>((i+5)%12))&1u)!=0;
             cv_rect(9+i*9,84,7,black?12:19,ag_mix(black?RGB(38,30,56):RGB(75,64,96),accent,e));
         }
-        cv_text(9,71,&FONT_XS,CHORD_ON?"SEL AGAIN: OFF / KNOB: TYPE":"SEL: ENABLE CHORDS",K_DIM);
-    }else if(page==PAGE_GEN || page==PAGE_FEEL){
-        if(page==PAGE_GEN)ag_planet(now,accent);else ag_rhythm(accent);
-        cv_text(9,3,&FONT_XS,page==PAGE_GEN?"COMPOSE  /  1 OF 2":"RHYTHM  /  2 OF 2",accent);
-        if(page==PAGE_GEN){
-            cv_text(8,19,&FONT_B,proj.gen_mode==2?"MELODY + CHORDS":GEN_MODE_NAME[proj.gen_mode],K_TEXT);
-            p=note_text(text,music_midi_pitch(GEN_ROOT+12*proj.octave));p=put_s(p," / ");put_s(p,SCALE_NAME[GEN_SCALE]);
-            cv_text(9,39,&FONT_XS,text,K_TEXT);
-        }else{
-            put_u(text,GEN_DENSITY);cv_text(8,17,&FONT_L,text,K_TEXT);
-            cv_text(50,33,&FONT_XS,"NOTES / BAR",accent);
-        }
+        cv_text(9,71,&FONT_XS,CHORD_ON?"HOLD SEL + KEYS: LEARN CHORD":"SEL: CHORDS  SEL+KEYS: LEARN",K_DIM);
+    }else if(page==PAGE_GEN){
+        cv_text(9,3,&FONT_XS,"COMPOSE  /  1 OF 3",accent);
+        cv_text(8,17,&FONT_B,proj.gen_mode==GM_BOTH?"MELODY + CHORDS":proj.gen_mode==GM_FULL?"BASS+CHORDS+MELODY":GEN_MODE_NAME[proj.gen_mode],K_TEXT);
+        p=note_text(text,music_midi_pitch(GEN_ROOT+12*proj.octave));p=put_s(p," ");put_s(p,SCALE_NAME[GEN_SCALE]);
+        cv_text(9,34,&FONT_XS,text,accent);
+        ag_ring(204,14,20,6,now/100u,ag_mix(RGB(35,29,62),accent,90),0);
+        ag_disc(204,14,5+glow.pulse/64,ag_mix(RGB(64,49,111),accent,140u+glow.pulse/3u));
+        ag_chips(45,accent);
+        ag_roll(accent);
+    }else if(page==PAGE_FEEL){
+        ag_rhythm(accent);
+        cv_text(9,3,&FONT_XS,"RHYTHM  /  2 OF 3",accent);
+        put_u(text,GEN_DENSITY);cv_text(8,17,&FONT_L,text,K_TEXT);
+        cv_text(text[1]?44:28,31,&FONT_XS,"NOTES / BAR",accent);
+        p=put_s(text,"SWING ");put_s(p,SWING_NAME[proj.gen_swing]);cv_text(9,49,&FONT_XS,text,K_DIM);
         ag_roll(accent);
         for(unsigned i=0;i<4;i++)cv_rect(170+(int)i*15,52,10,3,i==generator.step/16u?K_HOT:RGB(65,47,96));
+    }else if(page==PAGE_STYLE){
+        ag_style(accent);
+        cv_text(9,3,&FONT_XS,"STYLE  /  3 OF 3",accent);
+        cv_text(8,17,&FONT_M,STYLE_NAME[proj.gen_style],K_TEXT);
+        p=put_s(text,proj.gen_color?"7TH CHORDS":"TRIADS");p=put_s(p,"  ");p=put_u(p,GEN_OCTAVES);put_s(p," OCT");
+        cv_text(9,44,&FONT_XS,text,K_DIM);
+        ag_roll(accent);
     }else if(page==PAGE_ARP){
         ag_arp(accent);
         cv_text(9,4,&FONT_XS,"ARPEGGIATOR",accent);cv_text(8,22,&FONT_M,ARP_NAME[proj.arp_mode],K_TEXT);
-        p=put_s(text,RATE_NAME[proj.arp_rate]);p=put_s(p," / ");put_s(p,proj.arp_on?"ON":"OFF");
-        cv_text(9,55,&FONT_XS,text,K_TEXT);cv_text(9,72,&FONT_XS,proj.arp_latch?"LATCH ON":"LATCH OFF",K_DIM);
+        p=put_s(text,RATE_NAME[proj.arp_rate]);p=put_s(p," / ");p=put_s(p,proj.arp_on?"ON":"OFF");
+        p=put_s(p," / GATE ");p=put_u(p,proj.arp_gate);put_s(p,"%");
+        cv_text(9,55,&FONT_XS,text,K_TEXT);
+        p=put_s(text,proj.arp_latch?"LATCH ON":"LATCH OFF");
+        if(proj.gen_swing && (proj.arp_rate==RATE_8 || proj.arp_rate==RATE_16)){p=put_s(p,"  SWING ");put_s(p,SWING_NAME[proj.gen_swing]);}
+        cv_text(9,72,&FONT_XS,text,K_DIM);
     }else{
         ag_clock(accent);cv_text(9,4,&FONT_XS,"CLOCK / ORBIT",accent);
         p=put_u(text,proj.bpm10/10u);put_u(put_s(p,"."),proj.bpm10%10u);
         cv_text(8,22,&FONT_L,text,K_TEXT);cv_text(9,60,&FONT_XS,CLOCK_NAME[proj.clock],accent);
         int waiting=clock_external()&&now-arp_engine.last_clock>500u;
-        cv_rect(7,84,226,20,RGB(13,19,33));
+        ag_panel(7,84,226,20,RGB(13,19,33),waiting?K_HOT:ag_mix(RGB(40,44,66),accent,60));
         cv_text(12,88,&FONT_XS,waiting?"WAITING FOR MIDI CLOCK":clock_external()?"MIDI CLOCK CONNECTED":arp_engine.daw_tempo_valid?"DAW BPM / INTERNAL GRID":"INTERNAL CLOCK",waiting?K_HOT:accent);
     }
     /* A narrow sweep signals page changes, without moving labels or values. */
@@ -269,47 +346,71 @@ static void ag_scene(uint32_t now,int page,uint16_t accent)
 }
 static void noct_draw(void)
 {
-    uint32_t now=plat_ms();int page=ui.page;char label[24],value[32],text[64],*p;
+    uint32_t now=plat_ms();int page=ui.page;char label[24],value[40],text[64],*p;
     if(now-ui.sig[0]<50u && ui.frame)return;
     ui.sig[0]=now;ag_tick(now,page);uint16_t accent=AG_ACCENT[page];
     cv_begin(240,144,RGB(9,11,23));
+    /* Header: name, USB activity, BPM, the beat, unsaved changes, recording and the transport. */
     cv_text(8,1,&FONT_B,"NOCT",K_TEXT);cv_text(53,3,&FONT_XS,"FM",accent);
-    cv_rect(75,7,3,3,lit(PORT_USB,0)||lit(PORT_USB,1)?K_MINT:RGB(45,47,72));
+    cv_rect(75,4,3,3,lit(PORT_USB,1)?K_MINT:RGB(45,47,72));
+    cv_rect(75,10,3,3,lit(PORT_USB,0)?K_HOT:RGB(45,47,72));
     p=put_u(text,proj.bpm10/10u);if(proj.bpm10%10u)put_u(put_s(p,"."),proj.bpm10%10u);
-    cv_text(90,3,&FONT_XS,text,K_DIM);
-    const char *status=run_label();cv_rect(181,1,51,16,ag_mix(RGB(17,21,35),accent,35));
-    noct_center(206,2,&FONT_XS,status,accent);if(noct_recording)cv_rect(172,7,4,4,K_HOT);
+    cv_text(86,3,&FONT_XS,text,K_DIM);
+    {
+        int moving=ui.playing || generator.running || (proj.arp_on && arp_engine.count);
+        unsigned beat=(arp_engine.ticks/24u)%4u,phase=arp_engine.ticks%24u;
+        for(unsigned i=0;i<4;i++){
+            int on=moving && i==beat;
+            uint16_t c=on?(i?accent:K_TEXT):RGB(40,42,66);
+            if(on && phase>8u)c=ag_mix(c,RGB(40,42,66),phase*6u);
+            cv_rect(124+(int)i*9,6,6,5,c);
+        }
+    }
+    if(ui.dirty){cv_rect(163,5,6,6,K_HOT);cv_rect(164,6,4,4,RGB(9,11,23));cv_rect(165,7,2,2,K_HOT);}
+    const char *status=run_label();ag_panel(181,1,51,16,ag_mix(RGB(17,21,35),accent,35),ag_mix(RGB(30,34,55),accent,120));
+    noct_center(206,2,&FONT_XS,status,accent);if(noct_recording)ag_disc(174,8,2,K_HOT);
     static const char *const tabs[5]={"DAW","CHRD","GEN","ARP","SYNC"};
     int selected=page==PAGE_DAW?0:page==PAGE_CHORD?1:page==PAGE_ARP?3:page==PAGE_SYNC?4:2;
     for(int i=0;i<5;i++){
-        int x=8+i*45;cv_rect(x,21,43,15,i==selected?ag_mix(RGB(16,20,36),accent,28):RGB(11,13,26));
-        noct_center(x+21,21,&FONT_XS,tabs[i],i==selected?accent:RGB(116,122,153));
+        int x=8+i*45;
+        ag_panel(x,20,43,16,i==selected?ag_mix(RGB(16,20,36),accent,34):RGB(12,14,28),i==selected?accent:RGB(26,28,48));
+        noct_center(x+21,21,&FONT_XS,tabs[i],i==selected?K_TEXT:RGB(116,122,153));
         if(i==1)cv_rect(x+36,26,3,3,CHORD_ON?K_MINT:RGB(45,47,72));
-        if(i==selected){cv_rect(x,36,43,1,accent);cv_rect(x+10,37,23,1,ag_mix(RGB(25,21,45),accent,85));}
+        if(i==3)cv_rect(x+36,26,3,3,proj.arp_on?K_MINT:RGB(45,47,72));
+        if(i==2){
+            cv_rect(x+36,26,3,3,generator.running?K_MINT:generator.enabled?K_HOT:RGB(45,47,72));
+            if(i==selected)for(int d=0;d<3;d++)cv_rect(x+15+d*5,33,3,1,page==PAGE_GEN+d?K_TEXT:ag_mix(RGB(25,21,45),accent,90));
+        }
+        if(i==selected)cv_rect(x+10,37,23,1,ag_mix(RGB(25,21,45),accent,120));
     }
     cv_band(38,106);ag_scene(now,page,accent);cv_blit(0,0);plat_yield();
     cv_begin(240,96,RGB(9,11,23));
     for(int i=0;i<4;i++){
         int x=8+(i%2)*114,y=(i/2)*38,level,hot=ui.touched==i&&now<ui.touch_until;
         knob_text(page,i,label,value,&level);
-        uint16_t edge=hot?K_HOT:ag_mix(RGB(38,36,60),accent,28);
-        cv_rect(x,y+1,110,35,RGB(19,21,39));cv_rect(x,y+1,110,1,edge);
-        cv_rect(x,y+1,1,35,edge);cv_rect(x+109,y+1,1,35,RGB(31,30,52));
-        cv_rect(x+1,y+2,12,12,ag_mix(RGB(23,24,41),accent,30));
-        put_u(text,(unsigned)i+1u);cv_text(x+4,y+2,&FONT_XS,text,hot?K_HOT:accent);
-        cv_text(x+18,y+2,&FONT_XS,label,K_DIM);cv_text(x+7,y+16,&FONT_B,value,hot?K_HOT:K_TEXT);
-        if(level>=0)for(unsigned j=0;j<12;j++){
-            unsigned a=22u+j*5u;int dx=ag_sin(a+16,10),dy=ag_sin(a,10);
-            cv_rect(x+94+dx,y+21+dy,2,2,j*127u/11u<=(unsigned)level?accent:RGB(47,43,67));
-        }
-        if(hot){cv_rect(x+97,y+33,12,2,K_HOT);cv_rect(x+107,y+28,2,7,K_HOT);}
+        uint16_t edge=hot?K_HOT:ag_mix(RGB(38,36,60),accent,60);
+        ag_panel(x,y+1,110,35,hot?ag_mix(RGB(19,21,39),K_HOT,22):RGB(19,21,39),edge);
+        ag_panel(x+3,y+4,12,11,ag_mix(RGB(23,24,41),hot?K_HOT:accent,60),ag_mix(RGB(23,24,41),hot?K_HOT:accent,120));
+        put_u(text,(unsigned)i+1u);cv_text(x+6,y+3,&FONT_XS,text,hot?K_TEXT:accent);
+        cv_text(x+19,y+3,&FONT_XS,label,K_DIM);
+        /* Long values (harmonies) fall back to the small font so they never run under the ring. */
+        cv_text(x+6,text_w(&FONT_B,value)>78?y+20:y+17,text_w(&FONT_B,value)>78?&FONT_XS:&FONT_B,value,hot?K_HOT:K_TEXT);
+        if(level>=0)ag_arc(x+95,y+21,10,level,accent,hot);
     }
-    cv_rect(8,79,224,1,RGB(43,35,65));
-    if(now<ui.msg_until)put_s(text,ui.message);
-    else if(generator.pending)put_s(text,"NEXT BAR / HOME: DAW");
-    else if(page==PAGE_GEN)put_s(text,"PRESET: RHYTHM  EDIT: NEW");
-    else if(page==PAGE_FEEL)put_s(text,"SEQ: RUN/STOP  EDIT: NEW");
-    else if(page==PAGE_DAW)put_s(text,KNOB_MAP?"MIDI MAP / HOLD HOME: MIXER":"MIXER / HOLD HOME: MIDI MAP");
-    else put_s(text,"PRESET: PAGES  HOME: DAW");
-    cv_text(8,82,&FONT_XS,text,now<ui.msg_until?K_HOT:K_DIM);cv_blit(0,144);
+    if(now<ui.msg_until){
+        int w=text_w(&FONT_XS,ui.message)+16;if(w>224)w=224;
+        ag_panel(120-w/2,80,w,15,ag_mix(RGB(20,18,34),K_HOT,70),K_HOT);
+        noct_center(120,81,&FONT_XS,ui.message,K_TEXT);
+    }else{
+        if(generator.pending)put_s(text,"NEXT BAR / HOME: DAW");
+        else if(page==PAGE_GEN)put_s(text,"EDIT: MELODY  HOLD EDIT: HARMONY");
+        else if(page==PAGE_FEEL)put_s(text,"SEQ: RUN/STOP  SEQ+EDIT: UNDO");
+        else if(page==PAGE_STYLE)put_s(text,"PRESET: PAGES  SEQ: RUN/STOP");
+        else if(page==PAGE_SYNC)put_s(text,"GLO: TAP TEMPO  HOME: DAW");
+        else if(page==PAGE_DAW)put_s(text,KNOB_MAP?"MIDI MAP / HOLD HOME: MIXER":"MIXER / HOLD HOME: MIDI MAP");
+        else put_s(text,"PRESET: PAGES  HOME: DAW");
+        cv_rect(8,79,224,1,RGB(43,35,65));
+        noct_center(120,82,&FONT_XS,text,K_DIM);
+    }
+    cv_blit(0,144);
 }

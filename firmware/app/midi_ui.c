@@ -3,15 +3,15 @@
  * Uses CTL-1/fm1-base's key sensing and pixel renderer under MPL-2.0.
  */
 #define K_BG RGB(10,14,25)
-enum { PAGE_DAW, PAGE_CHORD, PAGE_GEN, PAGE_FEEL, PAGE_ARP, PAGE_SYNC, PAGE_COUNT };
-static const char *const PAGE_NAME[PAGE_COUNT]={"DAW","CHORDS","COMPOSE","RHYTHM","ARP","SYNC"};
+enum { PAGE_DAW, PAGE_CHORD, PAGE_GEN, PAGE_FEEL, PAGE_STYLE, PAGE_ARP, PAGE_SYNC, PAGE_COUNT };
+static const char *const PAGE_NAME[PAGE_COUNT]={"DAW","CHORDS","COMPOSE","RHYTHM","STYLE","ARP","SYNC"};
 #define K_PANEL RGB(19,25,43)
 #define K_LINE RGB(39,48,70)
 #define K_DIM RGB(135,150,177)
 #define K_TEXT RGB(229,237,246)
 #define K_HOT RGB(255,166,77)
 #define K_MINT RGB(119,235,207)
-static const char *const ARP_NAME[NARP]={"UP","DOWN","UP-DOWN","RANDOM","PLAYED"};
+static const char *const ARP_NAME[NARP]={"UP","DOWN","UP-DOWN","RANDOM","PLAYED","CONVERGE","PEDAL"};
 static const char *const RATE_NAME[NRATE]={"1/4","1/8","1/8T","1/16","1/16T","1/32"};
 static const uint8_t WHITE_K[16]=PLAT_WHITE_KEYS;
 static struct {
@@ -28,6 +28,13 @@ static struct {
     uint8_t heard_pedal;
     uint8_t revoicing;
     uint8_t sel_used,sel_toggle_off;
+    /* 0.8: strummed chords (voices still waiting, per key), the MEMORY chord being learned, tap tempo */
+    volatile uint8_t key_pending[NKEYS];
+    uint32_t key_t0[NKEYS];
+    volatile uint8_t strum_any;
+    uint8_t learn[MAX_VOICING],learn_n;
+    uint8_t glo_tap,tap_n;
+    uint32_t glo_t,tap_last,tap_iv[4],edit_t;
 } ui;
 static uint8_t noct_recording;
 static uint32_t noct_transition;
@@ -55,12 +62,28 @@ static void key_up(int k)
 {
     int i;
     if(!(ui.down>>k&1u))return;
+    uint32_t f=plat_lock();
     for(i=0;i<ui.key_count[k];i++){
         if(ui.key_arp[k])arp_release(ui.key_note[k][i]);
-        else bus_off(ui.key_note[k][i]);
+        else if(!(ui.key_pending[k]>>i&1u))bus_off(ui.key_note[k][i]);   /* a strum voice not yet started */
     }
+    ui.key_pending[k]=0;
     ui.key_count[k]=0;
     ui.down&=~(1u<<k);
+    plat_unlock(f);
+}
+/* SEL held: the keys build the MEMORY chord (played as single notes while learning). */
+static int learn_key(int k,int n,uint32_t vel)
+{
+    int i;
+    for(i=0;i<ui.learn_n && ui.learn[i]!=n;i++);
+    if(i==ui.learn_n && ui.learn_n<MAX_VOICING)ui.learn[ui.learn_n++]=(uint8_t)n;
+    ui.sel_used=1;
+    ui.down|=1u<<k;ui.key_vel[k]=(uint8_t)vel;ui.key_arp[k]=0;ui.key_pending[k]=0;
+    ui.key_note[k][0]=(uint8_t)n;ui.key_count[k]=1;
+    bus_on(n,vel);
+    put_u(put_s(ui.last,"LEARN "),(uint32_t)ui.learn_n);
+    return 1;
 }
 static void key_down(int k,uint32_t vel)
 {
@@ -68,14 +91,33 @@ static void key_down(int k,uint32_t vel)
     if(k<0||k>=NKEYS||n<0||n>127)return;
     if(!ui.revoicing && (plat_buttons()>>B_SEQ&1u)){GEN_ROOT=(uint8_t)clamp(53+k,0,115);ui.seq_used=1;ui.dirty=1;generator_regenerate();return;}
     key_up(k);
+    uint32_t f=plat_lock();
+    if(!ui.revoicing && (plat_buttons()>>B_SEL&1u)){learn_key(k,n,vel);plat_unlock(f);return;}
     ui.down|=1u<<k;ui.key_vel[k]=(uint8_t)vel;
     ui.key_count[k]=(uint8_t)note_voicing(n,ui.key_note[k]);
-    ui.key_arp[k]=proj.arp_on;
+    ui.key_arp[k]=proj.arp_on;ui.key_pending[k]=0;
     for(i=0;i<ui.key_count[k];i++){
         if(proj.arp_on)arp_press(ui.key_note[k][i]);
+        else if(i && STRUM_MS[proj.chord_strum%NSTRUMS])ui.key_pending[k]|=(uint8_t)(1u<<i);
         else bus_on(ui.key_note[k][i],vel);
     }
+    if(ui.key_pending[k]){ui.key_t0[k]=plat_ms();ui.strum_any=1;}
+    plat_unlock(f);
     put_u(put_s(ui.last,"NOTE "),(uint32_t)n);
+}
+/* The 1 kHz timer: start strummed voices on time, low to high. */
+static void strum_tick(void)
+{
+    if(!ui.strum_any)return;
+    uint32_t now=plat_ms(),step=STRUM_MS[proj.chord_strum%NSTRUMS];int any=0;
+    for(int k=0;k<NKEYS;k++)if(ui.key_pending[k]){
+        for(int i=1;i<ui.key_count[k];i++)if((ui.key_pending[k]>>i&1u) && now-ui.key_t0[k]>=(uint32_t)i*step){
+            ui.key_pending[k]&=(uint8_t)~(1u<<i);
+            bus_on(ui.key_note[k][i],ui.key_vel[k]);
+        }
+        any|=ui.key_pending[k]!=0;
+    }
+    ui.strum_any=(uint8_t)any;
 }
 static void all_keys_up(void){int i;for(i=0;i<NKEYS;i++)key_up(i);}
 static void heard_clear(void)
@@ -84,7 +126,7 @@ static void sustain_set(int on)
 {ui.sustain=(uint8_t)!!on;bus_sustain(on);play(0xB0u,64,on?127:0);}
 static void panic(void)
 {
-    all_keys_up();engine_panic();sustain_set(0);heard_clear();play(0xB0u,123,0);
+    all_keys_up();engine_panic();sustain_set(0);heard_clear();play(0xB0u,120,0);play(0xB0u,123,0);
     ui.sustain=0;put_s(ui.last,"ALL NOTES OFF");
 }
 static void revoice(int octave_delta,int arp_toggle)
@@ -199,11 +241,42 @@ static void local_tempo(int delta)
 }
 static void cycle_clock(void)
 {proj.clock=(uint8_t)((proj.clock+1)%NCLK);revoice(0,0);say("SYNC",proj.clock==CLK_AUTO?"AUTO":proj.clock==CLK_EXT?"EXTERNAL":"INTERNAL");ui.page=PAGE_SYNC;}
+/* GLO on the SYNC page: tap tempo (average of the last four taps, sent to the DAW like any BPM change). */
+static void tap_tempo(uint32_t t)
+{
+    if(ui.tap_n && t-ui.tap_last>=2000u)ui.tap_n=0;
+    if(ui.tap_n){
+        for(int i=3;i>0;i--)ui.tap_iv[i]=ui.tap_iv[i-1];
+        ui.tap_iv[0]=t-ui.tap_last;
+    }
+    ui.tap_last=t;
+    if(ui.tap_n<5u)ui.tap_n++;
+    if(ui.tap_n>=2u){
+        uint32_t sum=0,count=ui.tap_n-1u;char text[16],*p;
+        for(uint32_t i=0;i<count;i++)sum+=ui.tap_iv[i];
+        if(sum){
+            int target=(int)(600000u*count/sum);
+            local_tempo(clamp(target,200,9990)-(int)proj.bpm10);
+            p=put_u(text,proj.bpm10/10u);p=put_s(p,".");put_u(p,proj.bpm10%10u);
+            say("TAP",text);
+        }
+    }else say("TAP TEMPO","KEEP TAPPING GLO");
+}
+static void chord_learned(void)
+{
+    int low=127,n=ui.learn_n;uint8_t sorted[MAX_VOICING];
+    for(int i=0;i<n;i++)sorted[i]=ui.learn[i];
+    for(int i=1;i<n;i++)for(int j=i;j>0 && sorted[j-1]>sorted[j];j--){uint8_t t=sorted[j];sorted[j]=sorted[j-1];sorted[j-1]=t;}
+    low=sorted[0];
+    memset(proj.custom,0,sizeof proj.custom);
+    for(int i=0;i<n;i++)proj.custom[i]=(uint8_t)clamp(sorted[i]-low,0,36);
+    proj.custom_n=(uint8_t)n;CHORD_TYPE=CH_CUSTOM;ui.dirty=1;
+}
 static void button_down(int b)
 {
     switch(b){
     case B_SEL:
-        ui.sel_used=0;
+        ui.sel_used=0;ui.learn_n=0;
         /* SEL from another page opens the active chord mode. Only a second
          * unmodified press on CHRD is an explicit request to turn it off. */
         ui.sel_toggle_off=(uint8_t)(CHORD_ON && ui.page==PAGE_CHORD);
@@ -211,7 +284,8 @@ static void button_down(int b)
         break;
     case B_ARP:ui.arp_used=0;ui.arp_t=plat_ms();ui.page=PAGE_ARP;break;
     case B_SEQ:ui.seq_used=0;ui.seq_t=plat_ms();ui.page=PAGE_GEN;break;
-    case B_GLO:ui.glo_used=0;break;
+    case B_GLO:ui.glo_used=0;ui.glo_tap=(uint8_t)(ui.page==PAGE_SYNC);ui.glo_t=plat_ms();break;
+    case B_EDIT:ui.edit_t=plat_ms();break;
     case B_FX:ui.fx_used=0;break;
     case B_SAVE:ui.save_t=plat_ms();ui.save_done=0;break;
     case B_HOME:ui.home_t=plat_ms();break;
@@ -244,10 +318,14 @@ static void button_up(int b)
     case B_LFO:engine_mod(0);break;
     case B_SAVE:if(!ui.save_done)save_now();break;
     case B_SEL:{
-        int on=ui.sel_used || !ui.sel_toggle_off;
-        if(CHORD_ON!=(uint8_t)on)chord_enable(on);
+        int on=ui.sel_used || !ui.sel_toggle_off,learned=ui.learn_n>=2u;
+        if(learned)chord_learned();
+        ui.learn_n=0;
+        if(CHORD_ON!=(uint8_t)on || learned)chord_enable(on);
         ui.page=PAGE_CHORD;
-        say("CHORDS",CHORD_ON?CHORD_NAME[CHORD_TYPE]:"OFF");break;
+        if(learned)say("CHORD MEMORY","LEARNED");
+        else say("CHORDS",CHORD_ON?CHORD_NAME[CHORD_TYPE]:"OFF");
+        break;
     }
     case B_HOME:
         ui.page=PAGE_DAW;
@@ -255,40 +333,55 @@ static void button_up(int b)
         say(KNOB_MAP?"MIDI MAP":"DAW MIXER","HOLD HOME TO SWITCH");break;
     case B_SEQ:
         if(!ui.seq_used && plat_ms()-ui.seq_t<350u){
-            generator_toggle();ui.page=2;
+            generator_toggle();ui.page=PAGE_GEN;
             say("GENERATOR",generator.enabled?"ON":"OFF");
         }break;
-    case B_EDIT:music_random(&proj.gen_seed);proj.gen_progression=(uint8_t)((proj.gen_progression+1)%4);generator_regenerate();ui.dirty=1;ui.page=2;say("NEW PHRASE",generator.running?"NEXT BAR":"READY");break;
-    case B_GLO:if(!ui.glo_used){ui.page=PAGE_SYNC;say("SYNC SETTINGS",0);}break;
+    case B_EDIT:
+        ui.dirty=1;ui.page=PAGE_GEN;
+        if(ui.btn>>B_SEQ&1u){ui.seq_used=1;say("PHRASE",generator_undo()?"UNDO":"NO HISTORY");}
+        else if(plat_ms()-ui.edit_t>=600u){generator_new_seed(1);say("NEW HARMONY",harmony_now());}
+        else{generator_new_seed(0);say("NEW MELODY",generator.running?"NEXT BAR":"READY");}
+        break;
+    case B_GLO:
+        if(ui.glo_used)break;
+        if(ui.glo_tap)tap_tempo(ui.glo_t);
+        else{ui.page=PAGE_SYNC;say("SYNC","GLO AGAIN: TAP");}
+        break;
     default:break;
     }
 }
 /* Every visible page has four direct parameters. HOME always restores DAW CCs. */
 static void page_knob(int page,int i,int delta)
 {
-    int compose=0,voice=0;uint32_t f=plat_lock();
+    int compose=0,voice=0,revoice_keys=0;uint32_t f=plat_lock();
     if(page==PAGE_CHORD){
-        if(i==0){CHORD_TYPE=(uint8_t)clamp(CHORD_TYPE+delta,0,5);voice=1;}
-        if(i==1)proj.vel=(uint8_t)clamp(proj.vel+delta,1,127);
-        if(i==2){proj.touch=(uint8_t)clamp(proj.touch+delta,0,1);}
-        if(i==3){plat_unlock(f);revoice(delta,0);return;}
+        if(i==0){CHORD_TYPE=(uint8_t)clamp(CHORD_TYPE+delta,0,NCHORDS-1);voice=1;}
+        if(i==1){proj.chord_voicing=(uint8_t)clamp(proj.chord_voicing+delta,0,NVOICINGS-1);revoice_keys=1;}
+        if(i==2)proj.chord_strum=(uint8_t)clamp(proj.chord_strum+delta,0,NSTRUMS-1);
+        if(i==3){proj.key_scale=(uint8_t)clamp(proj.key_scale+delta,0,1);revoice_keys=1;}
     }else if(page==PAGE_GEN){
-        if(i==0)proj.gen_mode=(uint8_t)clamp(proj.gen_mode+delta,0,2);
-        if(i==1)GEN_SCALE=(uint8_t)clamp(GEN_SCALE+delta,0,2);
-        if(i==2)GEN_ROOT=(uint8_t)clamp(GEN_ROOT+delta,24,96);
-        if(i==3)proj.gen_progression=(uint8_t)clamp(proj.gen_progression+delta,0,3);
+        if(i==0)proj.gen_mode=(uint8_t)clamp(proj.gen_mode+delta,0,NGMODES-1);
+        if(i==1){GEN_SCALE=(uint8_t)clamp(GEN_SCALE+delta,0,NGSCALES-1);revoice_keys=1;}
+        if(i==2){GEN_ROOT=(uint8_t)clamp(GEN_ROOT+delta,24,96);revoice_keys=1;}
+        if(i==3)proj.gen_progression=(uint8_t)clamp(proj.gen_progression+delta,0,NPROGS-1);
         compose=1;
     }else if(page==PAGE_FEEL){
         if(i==0)GEN_DENSITY=(uint8_t)clamp(GEN_DENSITY+delta,0,16);
         if(i==1)GEN_GATE=(uint8_t)clamp(GEN_GATE+delta,10,100);
+        if(i==2)proj.gen_swing=(uint8_t)clamp(proj.gen_swing+delta,0,NSWING-1);
+        if(i==3)proj.human=(uint8_t)clamp(proj.human+delta*2,0,40);
+        compose=1;
+    }else if(page==PAGE_STYLE){
+        if(i==0)proj.gen_style=(uint8_t)clamp(proj.gen_style+delta,0,NSTYLES-1);
+        if(i==1)proj.gen_color=(uint8_t)clamp(proj.gen_color+delta,0,1);
         if(i==2)GEN_OCTAVES=(uint8_t)clamp(GEN_OCTAVES+delta,1,3);
         if(i==3)proj.vel=(uint8_t)clamp(proj.vel+delta,1,127);
-        compose=1;
+        compose=i<3;
     }else if(page==PAGE_ARP){
         if(i==0)proj.arp_rate=(uint8_t)clamp(proj.arp_rate+delta,0,NRATE-1);
         if(i==1)proj.arp_mode=(uint8_t)clamp(proj.arp_mode+delta,0,NARP-1);
         if(i==2)proj.arp_oct=(uint8_t)clamp(proj.arp_oct+delta,1,3);
-        if(i==3){plat_unlock(f);local_tempo(delta*10);return;}
+        if(i==3)proj.arp_gate=(uint8_t)clamp(proj.arp_gate+delta*5,10,100);
     }else if(page==PAGE_SYNC){
         if(i==0)proj.clock=(uint8_t)clamp(proj.clock+delta,0,NCLK-1);
         if(i==1){plat_unlock(f);local_tempo(delta*10);return;}
@@ -297,7 +390,8 @@ static void page_knob(int page,int i,int delta)
     }
     plat_unlock(f);
     if(voice)chord_enable(1);
-    if((page==PAGE_CHORD && i==2)||(page==PAGE_SYNC && i==3))touch_apply();
+    else if(revoice_keys && (page==PAGE_CHORD || proj.key_scale || (CHORD_ON && CHORD_TYPE>=CH_KEY && CHORD_TYPE<=CH_KEY7)))revoice(0,0);
+    if(page==PAGE_SYNC && i==3)touch_apply();
     if(compose)generator_regenerate();
     ui.dirty=1;ui.msg_until=0;
 }
@@ -333,7 +427,7 @@ static void input(void)
     if((e=turns[EN_SELECT])!=0)local_tempo(e*10);
     if((e=turns[EN_ALGO])!=0){
         if(ui.page==PAGE_DAW)ui.page=CHORD_ON?PAGE_CHORD:PAGE_ARP;
-        page_knob(ui.page,ui.page==PAGE_GEN?3:ui.page==PAGE_ARP?1:0,e);
+        page_knob(ui.page,ui.page==PAGE_GEN?3:ui.page==PAGE_ARP?1:0,e);   /* harmony / order / first knob */
     }
     if((e=turns[EN_PRESET])!=0){ui.page=(uint8_t)clamp(ui.page+e,0,PAGE_COUNT-1);ui.msg_until=0;}
     ui.master_raw+=((int32_t)plat_master()-ui.master_raw)/4;

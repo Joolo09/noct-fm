@@ -25,7 +25,7 @@ class WorkflowTests(unittest.TestCase):
         self.assertNotIn('out BF 6E 7F',output)
 
     def test_opening_sync_does_not_change_clock(self):
-        scenario(['wait 800','tap GLO','expect page 5','expect clock 0',
+        scenario(['wait 800','tap GLO','expect page 6','expect clock 0',
                   'tap GLO','expect clock 0','spin K1 2','expect clock 2',
                   'spin K1 -2','expect clock 0'])
 
@@ -38,7 +38,7 @@ class WorkflowTests(unittest.TestCase):
     def test_rhythm_page_and_navigation_keep_keyboard_routing(self):
         commands=['wait 800','spin PRESET 2','expect page 2','spin PRESET 1',
                   'expect page 3','spin K1 -3','expect density 5','spin K2 10','expect gate 95']
-        for page in range(6):
+        for page in range(7):
             commands+=['tap HOME',f'spin PRESET {page}','out','key 7 down',
                        'expect_out USB 90 3C 64','key 7 up','expect active 0']
         scenario(commands)

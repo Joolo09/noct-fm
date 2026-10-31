@@ -150,7 +150,7 @@ expect_out USB BF 70 7F
 midi USB BF 75 00
 expect recording 0
 tap GLO
-expect page 5
+expect page 6
 expect clock 0
 spin K1 2
 expect clock 2
@@ -199,7 +199,7 @@ expect generator 0
 midi USB FC 00 00
 tap ARP
 expect arp 1
-expect page 4
+expect page 5
 press ARP
 tap ENV
 release ARP

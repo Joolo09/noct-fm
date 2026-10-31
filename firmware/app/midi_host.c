@@ -64,6 +64,20 @@ int app_expect(const char *what,int *got)
         int i;for(i=0;i<128;i++)n+=note_owners[i]!=0;
     }
     else if(!strcmp(what,"arp_mode"))n=proj.arp_mode;
+    else if(!strcmp(what,"arp_gate"))n=proj.arp_gate;
+    else if(!strcmp(what,"swing"))n=proj.gen_swing;
+    else if(!strcmp(what,"human"))n=proj.human;
+    else if(!strcmp(what,"style"))n=proj.gen_style;
+    else if(!strcmp(what,"color"))n=proj.gen_color;
+    else if(!strcmp(what,"voicing"))n=proj.chord_voicing;
+    else if(!strcmp(what,"strum"))n=proj.chord_strum;
+    else if(!strcmp(what,"key_scale"))n=proj.key_scale;
+    else if(!strcmp(what,"custom_n"))n=proj.custom_n;
+    else if(!strncmp(what,"custom",6))n=proj.custom[atoi(what+6)%5];
+    else if(!strcmp(what,"progression"))n=proj.gen_progression;
+    else if(!strcmp(what,"seed"))n=(int)(proj.gen_seed&0x7FFFFFFFu);
+    else if(!strcmp(what,"history"))n=generator.history_n;
+    else if(!strcmp(what,"dirty"))n=ui.dirty;
     else if(!strcmp(what,"arp_rate"))n=proj.arp_rate;
     else if(!strcmp(what,"arp_oct"))n=proj.arp_oct;
     else if(!strcmp(what,"saves"))n=(int)ui.saves;
@@ -98,6 +112,12 @@ int app_host_cmd(const char *cmd,const char *a,const char *b,const char *c,const
         comma=0;
         for(int i=0;i<128;i++)if(ui_sounding(i)){printf("%s%d",comma?",":"",i);comma=1;}
         printf("]}\n");return 1;
+    }
+    if(!strcmp(cmd,"format5")){
+        /* A 0.7 save: format 5 with the 0.8 fields absent (zero). */
+        proj.format=5;proj.gen_swing=proj.gen_style=proj.gen_color=proj.chord_voicing=proj.chord_strum=proj.key_scale=0;
+        proj.arp_gate=0;proj.custom_n=0;memset(proj.custom,0,sizeof proj.custom);proj.human=0;
+        project_save();return 1;
     }
     if(!strcmp(cmd,"legacychord")){CHORD_ON=1;proj.arp_on=1;project_save();return 1;}
     if(!strcmp(cmd,"fixed")){proj.touch=0;touch_apply();return 1;}
