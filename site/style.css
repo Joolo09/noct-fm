@@ -120,6 +120,7 @@ footer{display:flex;justify-content:space-between;gap:20px;padding-top:28px;padd
   .wire.back i{background:linear-gradient(180deg,transparent,var(--violet),transparent)}
   .grid3,.pages,.keys,.grid2,.steps{grid-template-columns:1fr}
   .bar nav a:not(:last-child){display:none}
+  .bar nav{margin-left:auto}
 }
 @media(max-width:560px){
   main,footer,.bar{padding-left:18px;padding-right:18px}
@@ -136,3 +137,6 @@ footer{display:flex;justify-content:space-between;gap:20px;padding-top:28px;padd
   .screen img{content:url('./still.png')}
   *{transition:none!important}
 }
+.lang{width:auto;min-height:32px;padding:0 12px;border-radius:16px;background:transparent;border:1px solid var(--line);color:var(--text);font:700 12px var(--mono);letter-spacing:1px}
+.lang:hover:not(:disabled){border-color:var(--mint);color:var(--mint);filter:none}
+.keys .hold{font:11px var(--mono);color:var(--muted)}

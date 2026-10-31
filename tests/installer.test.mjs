@@ -13,9 +13,9 @@ const meta={product,bytes:raw.length,sha256:Buffer.from(await crypto.subtle.dige
 assert.equal((await verifyPackage(raw,meta)).length,1180);
 const changed=raw.slice();changed[100]^=1;
 await assert.rejects(verifyPackage(changed,meta),/SHA-256/);
-await assert.rejects(verifyPackage(raw.slice(1),meta),/Размер/);
-await assert.rejects(verifyPackage(raw,{...meta,product:'FM-1_015'}),/метаданные/);
-await assert.rejects(verifyPackage(raw,{...meta,product:'FM-1_9062501'}),/идентификатор/);
+await assert.rejects(verifyPackage(raw.slice(1),meta),/size/);
+await assert.rejects(verifyPackage(raw,{...meta,product:'FM-1_015'}),/metadata/);
+await assert.rejects(verifyPackage(raw,{...meta,product:'FM-1_9062501'}),/identity/);
 const bytes=Array.from({length:512},(_,i)=>i%256);
 assert.deepEqual(unpack7(pack7(bytes)),bytes);
 const manifest=JSON.parse(readFileSync(new URL('../site/firmware.json',import.meta.url),'utf8'));
@@ -23,7 +23,7 @@ assert.equal(manifest.schema,1);assert.deepEqual(manifest.builds,[]);
 const html=readFileSync(new URL('../site/index.html',import.meta.url),'utf8');
 assert.match(html,/id="install" disabled/);
 assert.match(html,/id="ack" type="checkbox"/);
-assert.match(html,/installer\.js\?v=2/);
+assert.match(html,/installer\.js\?v=3/);
 
 // A long-lived tab must not verify today's download with yesterday's metadata.
 const base='https://example.test/noct-fm/';
@@ -45,7 +45,7 @@ const fetchCurrent=async (url,options)=>{
 const opened=await readReleaseManifest(base,fetchCurrent);
 assert.equal(opened.meta.product,oldBuild.meta.product);
 current=newBuild;
-await assert.rejects(verifyPackage(newBuild.raw,opened.meta),/Размер/);
+await assert.rejects(verifyPackage(newBuild.raw,opened.meta),/size/);
 const loaded=await loadVerifiedRelease(base,fetchCurrent);
 assert.equal(loaded.meta.product,newBuild.meta.product);
 assert.equal(loaded.image.length,newBuild.raw.length-20);
@@ -77,7 +77,7 @@ for(const sameSize of [false,true]) {
     if(new URL(url).pathname.endsWith('/firmware.json')) {manifests++;return json(newBuild.meta);}
     packages++;return new Response(damaged);
   };
-  await assert.rejects(loadVerifiedRelease(base,badFetch),sameSize?/SHA-256/:/ожидалось 1300 байт, получено 1200/);
+  await assert.rejects(loadVerifiedRelease(base,badFetch),sameSize?/SHA-256/:/expected 1300 bytes, got 1200/);
   assert.equal(manifests,2);assert.equal(packages,1);
 }
 let attempts=0;
@@ -85,11 +85,11 @@ await assert.rejects(loadVerifiedRelease(base,async url=>{
   if(new URL(url).pathname.endsWith('/firmware.json'))
     return json(++attempts===1?oldBuild.meta:newBuild.meta);
   return new Response(new Uint8Array(960));
-}),/Размер/);
+}),/size/);
 assert.equal(attempts,2);
 for(const url of ['https://other.test/firmware/evil.fwsc','../outside.fwsc'])
-  await assert.rejects(readReleaseManifest(base,async()=>json({...newBuild.meta,url})),/адрес/);
-await assert.rejects(loadVerifiedRelease(base,async()=>json(null)),/пока не опубликована/);
+  await assert.rejects(readReleaseManifest(base,async()=>json({...newBuild.meta,url})),/address/);
+await assert.rejects(loadVerifiedRelease(base,async()=>json(null)),/has been published yet/);
 
 // Exercise the actual page module: open on the old release, then press Load
 // after publishing the new release, without reloading the page or probing USB.
@@ -113,5 +113,5 @@ await elements.get('load').listeners.get('click')();
 assert.ok(elements.get('build').textContent.includes(newBuild.meta.version));
 assert.ok(elements.get('package').textContent.includes(newBuild.meta.product));
 assert.equal(elements.get('error').textContent,'');
-assert.match(elements.get('status').textContent,/Файл проверен/);
+assert.match(elements.get('status').textContent,/Package verified/);
 console.log('Installer checks passed: page reload-free upgrade, package integrity, deployment races, cache isolation, bounded retries, URL validation and MIDI encoding.');
