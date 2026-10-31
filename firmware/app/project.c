@@ -129,7 +129,8 @@ int project_load(void)
         proj.rsv[0] = 2;
         if(proj.rsv[3]>1u)proj.rsv[3]=0;
         /* Keyboard CHORDS is polyphonic and must not inherit a saved arp route. */
-        if(proj.rsv[1])proj.arp_on=0;
+        /* The arpeggiator always starts off: only its rate, order, octaves, gate and latch are restored. */
+        proj.arp_on=0;
         for (int b=0;b<NBANKS;b++) for(int k=0;k<NKNOBS;k++) proj.cc[b][k]=(uint8_t)(20+k);
         return 0;
     }

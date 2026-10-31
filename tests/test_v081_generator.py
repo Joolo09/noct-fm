@@ -98,5 +98,15 @@ class HarmonyTests(unittest.TestCase):
                 self.assertTrue(all(n%12 in DORIAN or n<48 for _,n,_ in notes))   # bass approach notes may be chromatic
 
 
+
+class StartupTests(unittest.TestCase):
+    def test_arp_is_off_after_power_on_but_keeps_its_settings(self):
+        scenario(['wait 800','tap ARP','expect arp 1','spin K1 -1','spin K2 2','spin K4 4','press ARP','tap ENV',
+                  'release ARP','expect latch 1','tap ARP','tap ARP','expect arp 1','wait 1000','tap SAVE',
+                  'expect saves 1','reboot','wait 800','expect arp 0','expect arp_rate 2','expect arp_mode 2',
+                  'expect arp_gate 70','expect latch 1','out','key 7 down','expect active 1',
+                  'expect_out USB 90 3C 64','key 7 up','expect active 0','tap ARP','expect arp 1'])
+
+
 if __name__=='__main__':
     unittest.main(verbosity=2)
