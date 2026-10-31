@@ -1,124 +1,126 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#08091a">
-  <meta name="description" content="NOCT FM — MIDI-прошивка для M-VAVE FM-1 под FL Studio и Ableton Live. Аккорды, генератор мелодий, арпеджиатор, синхронизация. Установка по USB из браузера.">
-  <title>NOCT FM — MIDI-прошивка для M-VAVE FM-1</title>
-  <link rel="stylesheet" href="./style.css?v=3">
+  <meta name="description" content="NOCT FM — MIDI firmware for the M-VAVE FM-1 for FL Studio and Ableton Live. Chords, melody generator, arpeggiator, sync. Install over USB from the browser.">
+  <title>NOCT FM — MIDI firmware for the M-VAVE FM-1</title>
+  <link rel="stylesheet" href="./style.css?v=4">
+  <script>try{if(localStorage.getItem('noct-lang')==='ru')document.documentElement.lang='ru'}catch(e){}</script>
 </head>
 <body>
   <header class="bar">
     <a class="brand" href="./">NOCT<span>FM</span></a>
     <nav>
-      <a href="#how">Как работает</a>
-      <a href="#pages">Страницы</a>
-      <a href="#buttons">Кнопки</a>
-      <a href="#install">Установка</a>
+      <a href="#how" data-i18n="nav.how">How it works</a>
+      <a href="#pages" data-i18n="nav.pages">Pages</a>
+      <a href="#buttons" data-i18n="nav.buttons">Buttons</a>
+      <a href="#install" data-i18n="nav.install">Install</a>
       <a href="#daw">DAW</a>
       <a href="https://github.com/Joolo09/noct-fm">GitHub</a>
     </nav>
+    <button id="lang" class="lang" type="button" aria-label="Русский">RU</button>
   </header>
 
   <main>
     <section class="hero">
       <div>
         <p class="tag">M-VAVE FM-1 · v0.8.0 · USB MIDI</p>
-        <h1>MIDI-контроллер для FL&nbsp;Studio и Ableton&nbsp;Live</h1>
-        <p class="lead">Прошивка превращает FM-1 в контроллер для DAW: клавиатура, аккорды, генератор мелодий, арпеджиатор, ручки микшера и транспорт. Встроенный синтезатор отключён — весь звук делает DAW.</p>
-        <div class="cta"><a class="btn" href="#install">Установить</a><a class="btn ghost" href="./downloads/NOCT-DAW-scripts.zip" download>Скрипты для DAW</a></div>
+        <h1 data-i18n="hero.title">MIDI controller for FL&nbsp;Studio and Ableton&nbsp;Live</h1>
+        <p class="lead" data-i18n="hero.lead">This firmware turns the FM-1 into a DAW controller: keys, chords, a melody generator, an arpeggiator, mixer knobs and transport. The built-in synth is off — your DAW makes the sound.</p>
+        <div class="cta"><a class="btn" href="#install" data-i18n="cta.install">Install</a><a class="btn ghost" href="./downloads/NOCT-DAW-scripts.zip" download data-i18n="cta.scripts">DAW scripts</a></div>
         <ul class="facts">
-          <li><b>27</b> клавиш, F3–G5, ±3 октавы</li>
-          <li><b>7</b> страниц по 4 ручки</li>
-          <li><b>11</b> типов аккордов</li>
-          <li><b>8</b> ладов в генераторе</li>
+          <li><b>27</b><span data-i18n="fact.keys">keys, F3–G5, ±3 octaves</span></li>
+          <li><b>7</b><span data-i18n="fact.pages">pages of 4 knobs</span></li>
+          <li><b>11</b><span data-i18n="fact.chords">chord types</span></li>
+          <li><b>8</b><span data-i18n="fact.scales">generator scales</span></li>
         </ul>
       </div>
-      <figure class="screen"><img src="./noct-fm.gif" width="240" height="240" alt="Экран FM-1 с прошивкой NOCT"><figcaption>настоящий кадр прошивки, 240×240</figcaption></figure>
+      <figure class="screen"><img src="./noct-fm.gif" width="240" height="240" alt="FM-1 screen running NOCT"><figcaption data-i18n="hero.caption">a real firmware frame, 240×240</figcaption></figure>
     </section>
 
     <section id="how">
-      <h2>Как это работает</h2>
+      <h2 data-i18n="how.title">How it works</h2>
       <div class="flow">
-        <div class="node"><b>FM-1</b><span>клавиши, ручки, кнопки</span></div>
-        <div class="wire"><span>ноты · канал 1</span><span>CC и транспорт · канал 16</span><i></i></div>
+        <div class="node"><b>FM-1</b><span data-i18n="flow.fm1">keys, knobs, buttons</span></div>
+        <div class="wire"><span data-i18n="flow.notes">notes · channel 1</span><span data-i18n="flow.cc">CC and transport · channel 16</span><i></i></div>
         <div class="node"><b>DAW</b><span>FL Studio / Ableton Live</span></div>
-        <div class="wire back"><span>темп, play/rec, FX</span><span>MIDI Clock 24 PPQN</span><i></i></div>
-        <div class="node"><b>Экран</b><span>темп, доли, звучащие ноты</span></div>
+        <div class="wire back"><span data-i18n="flow.back">tempo, play/rec, FX</span><span>MIDI Clock 24 PPQN</span><i></i></div>
+        <div class="node"><b data-i18n="flow.screen">Screen</b><span data-i18n="flow.screen2">tempo, beats, sounding notes</span></div>
       </div>
       <div class="grid3">
-        <div><h3>Один пресет</h3><p>Ноты всегда идут на канале 1, ручки и транспорт — на канале 16. Ничего не нужно переключать между DAW.</p></div>
-        <div><h3>Страница = 4 ручки</h3><p>PRESET листает страницы, K1–K4 меняют параметры на экране. HOME возвращает ручки в микшер DAW.</p></div>
-        <div><h3>Синхронизация</h3><p>Режим AUTO берёт MIDI Clock из DAW, если он есть, а без него работает от внутреннего темпа. Скрипт DAW передаёт BPM в обе стороны.</p></div>
+        <div><h3 data-i18n="how.1t">One preset</h3><p data-i18n="how.1">Notes always go out on channel 1, knobs and transport on channel 16. Nothing to switch between DAWs.</p></div>
+        <div><h3 data-i18n="how.2t">Page = 4 knobs</h3><p data-i18n="how.2">PRESET flips pages, K1–K4 change what the screen shows. HOME returns the knobs to the DAW mixer.</p></div>
+        <div><h3 data-i18n="how.3t">Sync</h3><p data-i18n="how.3">AUTO follows the DAW's MIDI Clock when there is one and runs on the internal tempo otherwise. The DAW script sends BPM both ways.</p></div>
       </div>
     </section>
 
     <section id="pages">
-      <h2>Страницы</h2>
-      <p class="sub">PRESET — следующая страница. Изменения генератора вступают со следующего такта.</p>
+      <h2 data-i18n="pages.title">Pages</h2>
+      <p class="sub" data-i18n="pages.sub">PRESET goes to the next page. Generator changes take effect on the next bar.</p>
       <div class="pages">
-        <article><img src="./screens/daw.png" width="240" height="240" alt="Страница DAW" loading="lazy"><div><h3>DAW</h3><p>Ручки управляют микшером выбранного трека. Удержание HOME на 0,6 с включает MIDI MAP — свободные CC24–27 для любых параметров.</p><dl><dt>K1</dt><dd>Громкость</dd><dt>K2</dt><dd>Панорама</dd><dt>K3</dt><dd>Stereo / Send A</dd><dt>K4</dt><dd>Канал / Send B</dd></dl></div></article>
-        <article><img src="./screens/chords.png" width="240" height="240" alt="Страница CHORDS" loading="lazy"><div><h3>CHORDS</h3><p>Одна клавиша — целый аккорд. IN KEY строит аккорды в тональности. Держи SEL и нажми 2–5 клавиш — аккорд запомнится.</p><dl><dt>K1</dt><dd>Тип: MAJ, MIN, 7, IN KEY, MEMORY…</dd><dt>K2</dt><dd>Обращение, OPEN, DROP 2, +BASS</dd><dt>K3</dt><dd>Страм 6–70 мс</dd><dt>K4</dt><dd>Клавиши только в ладу</dd></dl></div></article>
-        <article><img src="./screens/compose.png" width="240" height="240" alt="Страница COMPOSE" loading="lazy"><div><h3>COMPOSE</h3><p>Генератор сочиняет фразу на 4 такта: мотив, ответ, контраст, завершение на тонике. Внизу — названия аккордов и piano roll.</p><dl><dt>K1</dt><dd>MELODY, CHORDS, BOTH, BASS, FULL</dd><dt>K2</dt><dd>Лад (8)</dd><dt>K3</dt><dd>Тоника</dd><dt>K4</dt><dd>Прогрессия (8)</dd></dl></div></article>
-        <article><img src="./screens/rhythm.png" width="240" height="240" alt="Страница RHYTHM" loading="lazy"><div><h3>RHYTHM</h3><p>Плотность и грув. Свинг действует и на генератор, и на ARP с сеткой 1/8 и 1/16.</p><dl><dt>K1</dt><dd>Нот на такт, 0–16</dd><dt>K2</dt><dd>Длина нот</dd><dt>K3</dt><dd>Свинг 50–75%</dd><dt>K4</dt><dd>HUMAN — акценты velocity</dd></dl></div></article>
-        <article><img src="./screens/style.png" width="240" height="240" alt="Страница STYLE" loading="lazy"><div><h3>STYLE</h3><p>Как звучат аккорды генератора: держатся, бьют по долям, в слабую долю или перебором.</p><dl><dt>K1</dt><dd>HOLD, PULSE, OFFBEAT, BROKEN</dd><dt>K2</dt><dd>Трезвучия / септаккорды</dd><dt>K3</dt><dd>Диапазон 1–3 октавы</dd><dt>K4</dt><dd>Velocity</dd></dl></div></article>
-        <article><img src="./screens/arp.png" width="240" height="240" alt="Страница ARP" loading="lazy"><div><h3>ARP</h3><p>Арпеджиатор по зажатым нотам. ARP + ENV — удержание без пальцев (latch).</p><dl><dt>K1</dt><dd>Сетка 1/4 … 1/32</dd><dt>K2</dt><dd>UP, DOWN, RANDOM, CONVERGE, PEDAL…</dd><dt>K3</dt><dd>Октавы 1–3</dd><dt>K4</dt><dd>Длина ноты</dd></dl></div></article>
-        <article><img src="./screens/sync.png" width="240" height="240" alt="Страница SYNC" loading="lazy"><div><h3>SYNC</h3><p>Источник темпа. На этой странице GLO работает как tap tempo, и новый BPM сразу уходит в DAW.</p><dl><dt>K1</dt><dd>AUTO, INTERNAL, EXTERNAL</dd><dt>K2</dt><dd>BPM</dd><dt>K3</dt><dd>Velocity</dd><dt>K4</dt><dd>Чувствительность клавиш</dd></dl></div></article>
+        <article><img src="./screens/daw.png" width="240" height="240" alt="DAW page" loading="lazy"><div><h3>DAW</h3><p data-i18n="p.daw">The knobs control the selected track's mixer. Hold HOME for 0.6 s for MIDI MAP — free CC24–27 for any parameter.</p><dl><dt>K1</dt><dd data-i18n="p.daw1">Volume</dd><dt>K2</dt><dd data-i18n="p.daw2">Pan</dd><dt>K3</dt><dd>Stereo / Send A</dd><dt>K4</dt><dd data-i18n="p.daw4">Channel / Send B</dd></dl></div></article>
+        <article><img src="./screens/chords.png" width="240" height="240" alt="CHORDS page" loading="lazy"><div><h3>CHORDS</h3><p data-i18n="p.chords">One key plays a whole chord. IN KEY builds chords in the key. Hold SEL and press 2–5 keys to store a chord.</p><dl><dt>K1</dt><dd data-i18n="p.chords1">Type: MAJ, MIN, 7, IN KEY, MEMORY…</dd><dt>K2</dt><dd data-i18n="p.chords2">Inversion, OPEN, DROP 2, +BASS</dd><dt>K3</dt><dd data-i18n="p.chords3">Strum 6–70 ms</dd><dt>K4</dt><dd data-i18n="p.chords4">Keys locked to the scale</dd></dl></div></article>
+        <article><img src="./screens/compose.png" width="240" height="240" alt="COMPOSE page" loading="lazy"><div><h3>COMPOSE</h3><p data-i18n="p.compose">The generator writes a 4-bar phrase: motif, answer, contrast, ending on the tonic. Below: chord names and a piano roll.</p><dl><dt>K1</dt><dd>MELODY, CHORDS, BOTH, BASS, FULL</dd><dt>K2</dt><dd data-i18n="p.compose2">Scale (8)</dd><dt>K3</dt><dd data-i18n="p.compose3">Root</dd><dt>K4</dt><dd data-i18n="p.compose4">Progression (8)</dd></dl></div></article>
+        <article><img src="./screens/rhythm.png" width="240" height="240" alt="RHYTHM page" loading="lazy"><div><h3>RHYTHM</h3><p data-i18n="p.rhythm">Density and groove. Swing applies to the generator and to the arp on 1/8 and 1/16.</p><dl><dt>K1</dt><dd data-i18n="p.rhythm1">Notes per bar, 0–16</dd><dt>K2</dt><dd data-i18n="p.rhythm2">Note length</dd><dt>K3</dt><dd data-i18n="p.rhythm3">Swing 50–75%</dd><dt>K4</dt><dd data-i18n="p.rhythm4">HUMAN — velocity accents</dd></dl></div></article>
+        <article><img src="./screens/style.png" width="240" height="240" alt="STYLE page" loading="lazy"><div><h3>STYLE</h3><p data-i18n="p.style">How the generator's chords play: held, on the beats, on the offbeats or broken.</p><dl><dt>K1</dt><dd>HOLD, PULSE, OFFBEAT, BROKEN</dd><dt>K2</dt><dd data-i18n="p.style2">Triads / sevenths</dd><dt>K3</dt><dd data-i18n="p.style3">Range 1–3 octaves</dd><dt>K4</dt><dd>Velocity</dd></dl></div></article>
+        <article><img src="./screens/arp.png" width="240" height="240" alt="ARP page" loading="lazy"><div><h3>ARP</h3><p data-i18n="p.arp">Arpeggiates the held notes. ARP + ENV latches them hands-free.</p><dl><dt>K1</dt><dd data-i18n="p.arp1">Rate 1/4 … 1/32</dd><dt>K2</dt><dd>UP, DOWN, RANDOM, CONVERGE, PEDAL…</dd><dt>K3</dt><dd data-i18n="p.arp3">Octaves 1–3</dd><dt>K4</dt><dd data-i18n="p.arp4">Note length</dd></dl></div></article>
+        <article><img src="./screens/sync.png" width="240" height="240" alt="SYNC page" loading="lazy"><div><h3>SYNC</h3><p data-i18n="p.sync">Tempo source. On this page GLO is tap tempo, and the new BPM goes straight to the DAW.</p><dl><dt>K1</dt><dd>AUTO, INTERNAL, EXTERNAL</dd><dt>K2</dt><dd>BPM</dd><dt>K3</dt><dd>Velocity</dd><dt>K4</dt><dd data-i18n="p.sync4">Key sensitivity</dd></dl></div></article>
       </div>
     </section>
 
     <section id="buttons">
-      <h2>Кнопки</h2>
+      <h2 data-i18n="buttons.title">Buttons</h2>
       <div class="keys">
-        <div><kbd>HOME</kbd><span>Ручки → DAW. Удержание: MIXER / MIDI MAP</span></div>
-        <div><kbd>PRESET</kbd><span>Листать страницы</span></div>
-        <div><kbd>SEL</kbd><span>Аккорды вкл/выкл</span></div>
-        <div><kbd>SEL</kbd>+<kbd>клавиши</kbd><span>Запомнить аккорд</span></div>
-        <div><kbd>SEQ</kbd><span>Генератор: пуск / стоп</span></div>
-        <div><kbd>SEQ</kbd>+<kbd>клавиша</kbd><span>Тоника генератора</span></div>
-        <div><kbd>EDIT</kbd><span>Новая мелодия</span></div>
-        <div><kbd>EDIT</kbd> 0,6 с<span>Новая мелодия и аккорды</span></div>
-        <div><kbd>SEQ</kbd>+<kbd>EDIT</kbd><span>Отменить, до 8 шагов</span></div>
-        <div><kbd>ARP</kbd><span>Арпеджиатор вкл/выкл</span></div>
-        <div><kbd>GLO</kbd><span>SYNC; на SYNC — tap tempo</span></div>
-        <div><kbd>PLAY</kbd> <kbd>REC</kbd><span>Транспорт DAW</span></div>
-        <div><kbd>FX</kbd><span>Эффекты трека в DAW</span></div>
-        <div><kbd>ENV</kbd><span>Sustain, пока держишь</span></div>
-        <div><kbd>LFO</kbd><span>Модуляция CC1</span></div>
-        <div><kbd>OCT−</kbd> <kbd>OCT+</kbd><span>Октава ±3</span></div>
-        <div><kbd>SELECT</kbd><span>BPM ±1 на любой странице</span></div>
-        <div><kbd>SAVE</kbd><span>Сохранить настройки</span></div>
-        <div><kbd>FX</kbd>+<kbd>REC</kbd><span>Panic — снять все ноты</span></div>
-        <div><kbd>MASTER</kbd><span>Мастер-громкость DAW</span></div>
+        <div><kbd>HOME</kbd><span data-i18n="b.home">Knobs → DAW. Hold: MIXER / MIDI MAP</span></div>
+        <div><kbd>PRESET</kbd><span data-i18n="b.preset">Flip pages</span></div>
+        <div><kbd>SEL</kbd><span data-i18n="b.sel">Chords on/off</span></div>
+        <div><kbd>SEL</kbd>+<kbd data-i18n="b.keys">keys</kbd><span data-i18n="b.learn">Store a chord</span></div>
+        <div><kbd>SEQ</kbd><span data-i18n="b.seq">Generator start / stop</span></div>
+        <div><kbd>SEQ</kbd>+<kbd data-i18n="b.key">key</kbd><span data-i18n="b.root">Generator root</span></div>
+        <div><kbd>EDIT</kbd><span data-i18n="b.edit">New melody</span></div>
+        <div><kbd>EDIT</kbd> <span class="hold" data-i18n="b.hold">0.6 s</span><span data-i18n="b.edithold">New melody and chords</span></div>
+        <div><kbd>SEQ</kbd>+<kbd>EDIT</kbd><span data-i18n="b.undo">Undo, up to 8 steps</span></div>
+        <div><kbd>ARP</kbd><span data-i18n="b.arp">Arpeggiator on/off</span></div>
+        <div><kbd>GLO</kbd><span data-i18n="b.glo">SYNC; on SYNC — tap tempo</span></div>
+        <div><kbd>PLAY</kbd> <kbd>REC</kbd><span data-i18n="b.transport">DAW transport</span></div>
+        <div><kbd>FX</kbd><span data-i18n="b.fx">Track effects in the DAW</span></div>
+        <div><kbd>ENV</kbd><span data-i18n="b.env">Sustain while held</span></div>
+        <div><kbd>LFO</kbd><span data-i18n="b.lfo">CC1 modulation</span></div>
+        <div><kbd>OCT−</kbd> <kbd>OCT+</kbd><span data-i18n="b.oct">Octave ±3</span></div>
+        <div><kbd>SELECT</kbd><span data-i18n="b.select">BPM ±1 on any page</span></div>
+        <div><kbd>SAVE</kbd><span data-i18n="b.save">Save settings</span></div>
+        <div><kbd>FX</kbd>+<kbd>REC</kbd><span data-i18n="b.panic">Panic — all notes off</span></div>
+        <div><kbd>MASTER</kbd><span data-i18n="b.master">DAW master volume</span></div>
       </div>
-      <p class="sub">Оранжевый квадрат в шапке экрана — есть несохранённые изменения. Сохранение происходит только по SAVE и только при остановленных нотах.</p>
+      <p class="sub" data-i18n="buttons.sub">An orange square in the screen header means unsaved changes. Settings are saved only with SAVE, and only while no notes are playing.</p>
     </section>
 
     <section id="install" class="installer" aria-labelledby="install-title">
-      <div class="head"><h2 id="install-title">Установка по USB</h2><span class="badge">экспериментальная</span></div>
-      <p class="sub">Chrome или Edge на компьютере. Перед установкой закрой DAW и подготовь официальный M-UPGRADE на случай отката.</p>
+      <div class="head"><h2 id="install-title" data-i18n="inst.title">Install over USB</h2><span class="badge" data-i18n="inst.badge">experimental</span></div>
+      <p class="sub" data-i18n="inst.sub">Chrome or Edge on a computer. Close your DAW first and keep the official M-UPGRADE at hand in case you want to go back.</p>
       <p id="compatibility" class="small"></p>
       <div class="steps">
-        <article><span class="n">1</span><h3>Подключи FM-1</h3><p>Кабель USB с передачей данных.</p><button id="connect">Подключить</button><label for="ports" class="small">MIDI-порт</label><select id="ports" disabled><option>Сначала подключи устройство</option></select><p id="device" class="small">Не подключено</p></article>
-        <article><span class="n">2</span><h3>Загрузи прошивку</h3><p id="build">Проверяем сборку…</p><button id="load" disabled>Загрузить</button><label for="file" class="small">или выбери файл .fwsc</label><input id="file" type="file" accept=".fwsc" disabled><p id="package" class="small">Файл не выбран</p></article>
-        <article><span class="n">3</span><h3>Установи</h3><p>Проверяются SHA-256, модель и идентификатор, затем образ записывается по USB MIDI.</p><label class="ack"><input id="ack" type="checkbox"> Понимаю, что прошивка экспериментальная</label><button id="install" disabled>Установить NOCT</button></article>
+        <article><span class="n">1</span><h3 data-i18n="inst.1t">Connect the FM-1</h3><p data-i18n="inst.1">A USB cable that carries data.</p><button id="connect" data-i18n="inst.connect">Connect</button><label for="ports" class="small" data-i18n="inst.port">MIDI port</label><select id="ports" disabled><option data-i18n="inst.portwait">Connect the device first</option></select><p id="device" class="small">Not connected</p></article>
+        <article><span class="n">2</span><h3 data-i18n="inst.2t">Load the firmware</h3><p id="build">Checking the build…</p><button id="load" disabled data-i18n="inst.load">Load</button><label for="file" class="small" data-i18n="inst.file">or choose a .fwsc file</label><input id="file" type="file" accept=".fwsc" disabled><p id="package" class="small">No file selected</p></article>
+        <article><span class="n">3</span><h3 data-i18n="inst.3t">Install</h3><p data-i18n="inst.3">SHA-256, the model and the firmware identity are checked, then the image is written over USB MIDI.</p><label class="ack"><input id="ack" type="checkbox"> <span data-i18n="inst.ack">I understand this firmware is experimental</span></label><button id="install" disabled data-i18n="inst.go">Install NOCT</button></article>
       </div>
-      <div class="status"><div class="line"><p id="status" role="status" aria-live="polite">Готов к подключению.</p><span id="percent">0%</span></div><progress id="progress" max="100" value="0" aria-label="Ход установки"></progress><p id="error" role="alert"></p><details><summary>Журнал</summary><pre id="log">NOCT FM installer ready.</pre><button id="save-log" class="secondary">Скачать журнал</button></details></div>
-      <p class="small">Настройки 0.7 переносятся автоматически. Загрузчик, USB и запись во flash в этой версии не менялись. Если устройство не запускается, но видно в режиме обновления (OCT− и OCT+ на 5 с), верни заводскую прошивку через <a href="https://www.m-vave.com/product?id=fm-1" target="_blank" rel="noopener">M-UPGRADE</a>.</p>
+      <div class="status"><div class="line"><p id="status" role="status" aria-live="polite">Ready to connect.</p><span id="percent">0%</span></div><progress id="progress" max="100" value="0" aria-label="Install progress"></progress><p id="error" role="alert"></p><details><summary data-i18n="inst.log">Log</summary><pre id="log">NOCT FM installer ready.</pre><button id="save-log" class="secondary" data-i18n="inst.savelog">Download log</button></details></div>
+      <p class="small" data-i18n="inst.note">Settings from 0.7 migrate automatically. The bootloader, USB and flash writing are unchanged in this version. If the device does not start but shows up in update mode (OCT− and OCT+ for 5 s), restore the factory firmware with <a href="https://www.m-vave.com/product?id=fm-1" target="_blank" rel="noopener">M-UPGRADE</a>.</p>
     </section>
 
     <section id="daw">
-      <h2>Подключение к DAW</h2>
+      <h2 data-i18n="daw.title">Connecting to a DAW</h2>
       <div class="grid2">
-        <div class="card"><h3>FL Studio</h3><ol><li>Папку <code>FL Studio/NOCT</code> из архива скопируй в <code>Settings/Hardware/</code> внутри User data folder.</li><li>Перезапусти FL. В MIDI Settings выбери NOCT FM-1 → Controller type <b>NOCT FM</b>.</li><li>Назначь входу и выходу один Port number.</li><li>Для синхронизации включи Send master sync на выходе.</li></ol></div>
-        <div class="card"><h3>Ableton Live 11/12</h3><ol><li>Папку <code>Ableton Live/NOCT</code> скопируй в <code>Remote Scripts/</code> в User Library.</li><li>Перезапусти Live. Control Surface → <b>NOCT</b>, Input/Output → NOCT FM-1.</li><li>Включи Track на входе и Sync на выходе.</li><li>Выбери MIDI-дорожку с инструментом.</li></ol></div>
+        <div class="card"><h3>FL Studio</h3><ol data-i18n="daw.fl"><li>Copy the <code>FL Studio/NOCT</code> folder from the archive to <code>Settings/Hardware/</code> inside your User data folder.</li><li>Restart FL. In MIDI Settings pick NOCT FM-1 → Controller type <b>NOCT FM</b>.</li><li>Give the input and the output the same Port number.</li><li>For sync, enable Send master sync on the output.</li></ol></div>
+        <div class="card"><h3>Ableton Live 11/12</h3><ol data-i18n="daw.live"><li>Copy the <code>Ableton Live/NOCT</code> folder to <code>Remote Scripts/</code> in your User Library.</li><li>Restart Live. Control Surface → <b>NOCT</b>, Input/Output → NOCT FM-1.</li><li>Turn on Track for the input and Sync for the output.</li><li>Select a MIDI track with an instrument.</li></ol></div>
       </div>
-      <div class="cta"><a class="btn" href="./downloads/NOCT-DAW-scripts.zip" download>Скачать скрипты</a><a class="btn ghost" href="https://github.com/Joolo09/noct-fm#readme">Полная документация</a></div>
+      <div class="cta"><a class="btn" href="./downloads/NOCT-DAW-scripts.zip" download data-i18n="daw.scripts">Download scripts</a><a class="btn ghost" href="https://github.com/Joolo09/noct-fm#readme" data-i18n="daw.docs">Full documentation</a></div>
     </section>
   </main>
 
-  <footer><span>NOCT FM 0.8.0</span><span>На базе CTL-1, fm1-base и felucca-bsp · <a href="./LICENSE">MPL-2.0</a> · не связано с M-VAVE, Image-Line и Ableton</span></footer>
-  <script type="module" src="./installer.js?v=2"></script>
+  <footer><span>NOCT FM 0.8.0</span><span data-i18n="footer">Built on CTL-1, fm1-base and felucca-bsp · <a href="./LICENSE">MPL-2.0</a> · not affiliated with M-VAVE, Image-Line or Ableton</span></footer>
+  <script type="module" src="./installer.js?v=3"></script>
 </body>
 </html>

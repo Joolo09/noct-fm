@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 import { Updater } from './lib/fm1ota.js';
-import { verifyPackage } from './verify.js?v=2';
-import { readReleaseManifest, loadVerifiedRelease } from './releases.js?v=1';
+import { verifyPackage } from './verify.js?v=3';
+import { readReleaseManifest, loadVerifiedRelease } from './releases.js?v=2';
+import { t, onLang } from './i18n.js?v=1';
 const $ = id => document.getElementById(id);
 let midi, updater, connected, meta, image, writing = false, loading = false;
 const supported = isSecureContext && !!navigator.requestMIDIAccess;
@@ -11,8 +12,12 @@ function log(message) {
   if (lines.length > 200) lines.shift();
   $('log').textContent = lines.join('\n');
 }
-function status(message, percent) {
-  $('status').textContent = message;
+// Visible texts are kept as keys so a language switch re-renders them.
+const shown = {};
+function show(id, key, vars) { shown[id] = { key, vars }; $(id).textContent = t(key, vars); }
+function rerender() { for (const id in shown) $(id).textContent = t(shown[id].key, shown[id].vars); }
+function status(key, percent, vars) {
+  show('status', key, vars);
   if (percent != null) {
     $('progress').value = Math.min(100, percent);
     $('percent').textContent = `${Math.round(Math.min(100, percent))}%`;
@@ -27,33 +32,24 @@ function refresh() {
   $('install').disabled = !supported || !connected || !image || !$('ack').checked || writing || loading;
 }
 function error(e) { $('error').textContent = e.message || String(e); log($('error').textContent); }
-const messages = {
-  denied:'Доступ к MIDI SysEx не разрешён. Разреши MIDI в настройках этого сайта.',
-  notfound:'FM-1 не отвечает. Проверь USB-кабель и закрой DAW.',
-  model:'Устройство не является FM-1. Запись не началась.',
-  lost:'USB-соединение потеряно. Подключи тот же FM-1 и повтори установку тем же файлом.',
-  stopped:'Установка остановилась. Сохрани журнал и проверь режим загрузчика.',
-  noloader:'Загрузчик не появился. Переподключи FM-1 и повтори установку.',
-  noreturn:'Запись закончилась, но FM-1 не вернулся. Перезапусти устройство и проверь версию.',
-  mismatch:'После записи устройство сообщает другую версию. Установка не подтверждена.',
-  open:'Сначала верни штатную прошивку через официальный M-UPGRADE: текущий Open-загрузчик не принимает NOCT напрямую.'
-};
+const messages = Object.fromEntries(['denied','notfound','model','lost','stopped','noloader','noreturn','mismatch','open'].map(k => [k, `msg.${k}`]));
+const message = code => messages[code] && t(messages[code]);
 async function probe() {
   connected = null;
   const input = midi.inputs.get($('ports').value);
   const output = input && [...midi.outputs.values()].find(p => p.name === input.name && p.state !== 'disconnected');
-  if (!input || !output) throw new Error('Не найдена пара MIDI IN/OUT. Проверь USB и выбери порт FM-1.');
+  if (!input || !output) throw new Error(t('msg.nopair'));
   // Only the selected physical port is probed; the updater never scans other gear.
   updater = new Updater({inputs:new Map([[input.id,input]]),outputs:new Map([[output.id,output]])},log);
   const dev = await updater.find();
-  if (!dev) throw new Error(messages.notfound);
+  if (!dev) throw new Error(message('notfound'));
   dev.link.close();
-  if (dev.id.model !== 'FM-1' && !/^ota-/i.test(dev.id.model)) throw new Error(messages.model);
-  if (dev.id.open) throw new Error(messages.open);
+  if (dev.id.model !== 'FM-1' && !/^ota-/i.test(dev.id.model)) throw new Error(message('model'));
+  if (dev.id.open) throw new Error(message('open'));
   connected = dev.id;
-  $('device').textContent = `${input.name} / ${dev.id.text}`;
-  status('FM-1 подключён. Выбери сборку.',0);
-  log(`Устройство: ${dev.id.text}`);
+  delete shown.device; $('device').textContent = `${input.name} / ${dev.id.text}`;
+  status('st.connected',0);
+  log(`Device: ${dev.id.text}`);
 }
 $('connect').addEventListener('click',async()=>{
   $('error').textContent=''; loading=true; refresh();
@@ -61,16 +57,16 @@ $('connect').addEventListener('click',async()=>{
     midi = await navigator.requestMIDIAccess({sysex:true});
     const inputs=[...midi.inputs.values()].filter(p=>p.state!=='disconnected' && /fm-?1|noct|felucca|ota/i.test(p.name||''));
     $('ports').replaceChildren(...inputs.map(p=>new Option(p.name,p.id)));
-    if (!inputs.length) throw new Error('Не найден MIDI-порт FM-1. Подключи устройство по USB.');
+    if (!inputs.length) throw new Error(t('msg.noport'));
     if(inputs.length===1) await probe();
-    else status('Найдено несколько устройств. Выбери нужный FM-1 в списке.');
+    else status('st.several');
     midi.onstatechange=()=>{
       if(writing)return;
       if(!midi.inputs.get($('ports').value) || midi.inputs.get($('ports').value).state==='disconnected'){
-        connected=null; $('device').textContent='USB отключён'; refresh();
+        connected=null; show('device','st.unplugged'); refresh();
       }
     };
-  } catch(e) {error(e.name==='NotAllowedError'?new Error(messages.denied):e);}
+  } catch(e) {error(e.name==='NotAllowedError'?new Error(message('denied')):e);}
   finally {loading=false;refresh();}
 });
 $('ports').addEventListener('change',async()=>{
@@ -83,37 +79,37 @@ async function choose(raw,name){
   packageReady(name);
 }
 function showBuild(){
-  $('build').textContent=`${meta.version} / USB MIDI / ${Math.round(meta.bytes/1024)} КБ / экспериментальная сборка`;
+  show('build','build.line',{version:meta.version,kb:Math.round(meta.bytes/1024)});
 }
 function packageReady(name){
-  $('package').textContent=`${name} / SHA-256 проверен / ${meta.product}`;
-  status('Файл проверен. Можно перейти к установке.',0);
-  log(`Проверен ${meta.product}, SHA-256 ${meta.sha256}`);
+  show('package','pkg.line',{name,product:meta.product});
+  status('st.verified',0);
+  log(`Verified ${meta.product}, SHA-256 ${meta.sha256}`);
 }
 $('load').addEventListener('click',async()=>{
   loading=true;image=null;$('error').textContent='';refresh();
-  status('Скачиваем и проверяем опубликованную сборку…',0);
+  status('st.downloading',0);
   try{
     const release=await loadVerifiedRelease(location.href);
     meta=release.meta;image=release.image;
     showBuild();packageReady(meta.version);
-  }catch(e){$('package').textContent='Файл не прошёл проверку';error(e);status('Сборка не загружена. Запись не началась.',0);}
+  }catch(e){show('package','st.badfile');error(e);status('st.notloaded',0);}
   finally{loading=false;refresh();}
 });
 $('file').addEventListener('change',async e=>{
   image=null;loading=true;$('error').textContent='';refresh();
   try{const f=e.target.files[0];if(f)await choose(new Uint8Array(await f.arrayBuffer()),f.name);}
-  catch(e){$('package').textContent='Файл не прошёл проверку';error(e);}
+  catch(e){show('package','st.badfile');error(e);}
   finally{loading=false;refresh();}
 });
 $('ack').addEventListener('change',refresh);
 function step(k,n){
   if(k!=='write'&&k!=='verify')log(`${k} ${n??''}`);
-  if(k==='start')status('Проверяем установленную прошивку…',1);
-  if(k==='verify')status('Подготовка загрузчика…',Math.min(19,1+n/4));
-  if(k==='loader')status('Переходим в режим записи…',20);
-  if(k==='write')status('Запись прошивки. Не отключай USB.',Math.min(95,20+75*n/Math.ceil(image.length/512)));
-  if(k==='reboot')status('FM-1 перезапускается. Проверяем версию…',97);
+  if(k==='start')status('st.checkinstalled',1);
+  if(k==='verify')status('st.prepare',Math.min(19,1+n/4));
+  if(k==='loader')status('st.loader',20);
+  if(k==='write')status('st.writing',Math.min(95,20+75*n/Math.ceil(image.length/512)));
+  if(k==='reboot')status('st.reboot',97);
 }
 $('install').addEventListener('click',async()=>{
   if($('install').disabled)return;
@@ -122,35 +118,37 @@ $('install').addEventListener('click',async()=>{
   // same FM-1 name; require exactly one FM-1 connected before starting.
   const eligible=[...midi.inputs.values()].filter(p=>p.state!=='disconnected'&&/fm-?1|noct|felucca|ota/i.test(p.name||''));
   try{
-    if(eligible.length!==1)throw new Error('Оставь подключённым только один FM-1 на время установки.');
+    if(eligible.length!==1)throw new Error(t('msg.onlyone'));
     const up=new Updater(midi,log);
     const ota=await up.find(id=>/^ota-/i.test(id.model));
     if(ota){
       ota.link.close();
-      if(!await up.resume(image,step))throw new Error(messages.stopped);
+      if(!await up.resume(image,step))throw new Error(message('stopped'));
       step('reboot');
       const back=await up.waitFor(id=>!/^ota-/i.test(id.model),40000);
-      if(!back)throw new Error(messages.noreturn);
+      if(!back)throw new Error(message('noreturn'));
       const identity=back.id.text;back.link.close();
-      if(identity!==meta.product)throw new Error(messages.mismatch);
+      if(identity!==meta.product)throw new Error(message('mismatch'));
     }else await up.install(image,meta.product,step);
-    status('NOCT FM установлен. Версия устройства подтверждена.',100);
-    log(`Успешно: устройство сообщает ${meta.product}`);
-  }catch(e){error(new Error(messages[e.code]||e.message));status('Установка не подтверждена. Проверь сообщение и журнал.');}
-  finally{writing=false;connected=null;$('device').textContent='Для новой операции подключи устройство повторно';refresh();}
+    status('st.done',100);
+    log(`Success: the device reports ${meta.product}`);
+  }catch(e){error(new Error(message(e.code)||e.message));status('st.failed');}
+  finally{writing=false;connected=null;show('device','st.reconnect');refresh();}
 });
 addEventListener('beforeunload',e=>{if(writing){e.preventDefault();e.returnValue='';}});
 $('save-log').addEventListener('click',()=>{
   const url=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/plain;charset=utf-8'}));
   const a=document.createElement('a');a.href=url;a.download='noct-install.log';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
-$('compatibility').textContent=supported?'Браузер поддерживает Web MIDI SysEx. Доступ запрашивается только по кнопке подключения.':'Нужен Chrome или Edge на компьютере и HTTPS. В этом браузере установка недоступна.';
+show('compatibility',supported?'compat.ok':'compat.no');
+show('build','inst.checking');show('package','inst.nofile');show('device','inst.nodevice');status('st.ready');
+onLang(rerender);
 refresh();
 try{
   const manifest=await readReleaseManifest(location.href);
   meta=manifest.meta;
   if(meta){
     showBuild();
-  }else $('build').textContent=manifest.message||'Проверенная сборка пока не опубликована.';
-}catch(e){meta=null;$('build').textContent='Не удалось получить сборку.';error(e);}
+  }else show('build','build.none');
+}catch(e){meta=null;show('build','build.fail');error(e);}
 refresh();
