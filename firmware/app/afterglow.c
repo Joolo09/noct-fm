@@ -58,12 +58,12 @@ static void ag_arc(int x,int y,int r,int level,uint16_t accent,int hot)
 /* The four-bar progression as chord symbols, the playing bar lit. */
 static void ag_chips(int y,uint16_t accent)
 {
-    const composition_t *p=&generator.plan[generator.active];char name[12];
+    const composition_t *p=&generator.plan[generator.active];char name[24];
     unsigned bar=generator.step/16u;
     for(int i=0;i<4;i++){
         int x=8+i*57,on=generator.running && (unsigned)i==bar;
         ag_panel(x,y,54,14,on?ag_mix(RGB(20,20,40),accent,120):RGB(18,20,38),on?K_TEXT:ag_mix(RGB(40,38,66),accent,70));
-        chord_symbol(name,p,i,GEN_SCALE);
+        bar_symbol(name,p,i,GEN_SCALE);
         noct_center(x+27,y+1,&FONT_XS,name,on?K_TEXT:ag_mix(K_DIM,accent,60));
     }
 }
@@ -181,20 +181,24 @@ static void ag_roll(uint16_t accent)
     }
     ag_panel(8,60,224,44,RGB(12,16,33),ag_mix(RGB(39,34,62),accent,75));
     for(int row=0;row<5;row++)cv_rect(9,64+row*8,222,1,RGB(24,27,48));
-    if(GEN_HAS_CHORDS(p->mode))for(int i=0;i<16;i++)if(chord_trigger(p->style,(unsigned)i)){
-        int x=10+i*14,len=(int)(chord_length(p->style)/6u)*14*p->gate/100;
+    unsigned split=PLAN_SPLIT(p,bar);
+    if(GEN_HAS_CHORDS(p->mode))for(int i=0;i<16;i++)if(chord_trigger(p->style,(unsigned)i,split)){
+        int x=10+i*14,len=(int)(chord_length(p->style,split)/6u)*14*p->gate/100,n=p->voices[bar*2u+(i>=8)];
         if(x+len>228)len=228-x;
         if(len<4)len=4;
-        for(int v=0;v<p->voices;v++){
-            if(p->style==ST_BROKEN && v!=(i/2)%p->voices)continue;
-            int y=chords_only?66+v*(p->voices>3?9:12):92+v*3;
+        for(int v=0;v<n;v++){
+            if(p->style==ST_BROKEN && v!=(i/2)%n)continue;
+            int y=chords_only?66+v*(n>3?9:12):92+v*3;
             cv_rect(x,y,len-1,chords_only?4:2,ag_mix(RGB(36,30,61),accent,chords_only?150:60));
             cv_rect(x,y,2,chords_only?4:2,accent);
         }
     }
-    if(chords_only)for(int v=0;v<p->voices;v++){
-        char note[12];note_text(note,p->chords[bar][v]);
-        cv_text(198,(p->voices>3?62:63)+v*(p->voices>3?9:12),&FONT_XS,note,K_TEXT);
+    if(chords_only){
+        unsigned half=bar*2u+(split && generator.step%16u>=8u);int n=p->voices[half];
+        for(int v=0;v<n;v++){
+            char note[12];note_text(note,p->chords[half][v]);
+            cv_text(198,(n>3?62:63)+v*(n>3?9:12),&FONT_XS,note,K_TEXT);
+        }
     }
     if(GEN_HAS_BASS(p->mode) && line)for(int i=0;i<16;i++)if(p->bass_rhythm[bar]>>i&1u)
         cv_rect(10+i*14,100,9,2,ag_mix(RGB(40,30,50),K_HOT,150));
@@ -264,13 +268,13 @@ static void ag_arp(uint16_t accent)
 /* STYLE: the chord stack of the playing bar, lowest voice at the bottom. */
 static void ag_style(uint16_t accent)
 {
-    const composition_t *p=&generator.plan[generator.active];unsigned bar=generator.step/16u;char note[12];
-    for(int v=0;v<p->voices;v++){
+    const composition_t *p=&generator.plan[generator.active];unsigned half=generator.step/8u;char note[16];
+    for(int v=0;v<p->voices[half&7u];v++){
         int y=44-v*12;
         ag_panel(176,y,56,11,ag_mix(RGB(22,18,38),accent,50+v*25),ag_mix(accent,K_TEXT,v*50));
-        note_text(note,p->chords[bar][v]);noct_center(204,y-1,&FONT_XS,note,K_TEXT);
+        note_text(note,p->chords[half&7u][v]);noct_center(204,y-1,&FONT_XS,note,K_TEXT);
     }
-    chord_symbol(note,p,(int)bar,GEN_SCALE);
+    chord_symbol(note,p,(int)half,GEN_SCALE);
     noct_center(158,43,&FONT_XS,note,accent);
 }
 static void ag_scene(uint32_t now,int page,uint16_t accent)
@@ -302,7 +306,9 @@ static void ag_scene(uint32_t now,int page,uint16_t accent)
     }else if(page==PAGE_GEN){
         cv_text(9,3,&FONT_XS,"COMPOSE  /  1 OF 3",accent);
         cv_text(8,17,&FONT_B,proj.gen_mode==GM_BOTH?"MELODY + CHORDS":proj.gen_mode==GM_FULL?"BASS+CHORDS+MELODY":GEN_MODE_NAME[proj.gen_mode],K_TEXT);
-        p=note_text(text,music_midi_pitch(GEN_ROOT+12*proj.octave));p=put_s(p," ");put_s(p,SCALE_NAME[GEN_SCALE]);
+        p=note_text(text,music_midi_pitch(GEN_ROOT+12*proj.octave));p=put_s(p," ");p=put_s(p,SCALE_NAME[GEN_SCALE]);
+        p=put_s(p,"  #");if(GEN_VAR<100u)p=put_s(p,GEN_VAR<10u?"00":"0");p=put_u(p,GEN_VAR);p=put_s(p," ");
+        put_s(p,MELODY_NAME[generator.plan[generator.active].character%NMELODY]);
         cv_text(9,34,&FONT_XS,text,accent);
         ag_ring(204,14,20,6,now/100u,ag_mix(RGB(35,29,62),accent,90),0);
         ag_disc(204,14,5+glow.pulse/64,ag_mix(RGB(64,49,111),accent,140u+glow.pulse/3u));
@@ -320,7 +326,7 @@ static void ag_scene(uint32_t now,int page,uint16_t accent)
         ag_style(accent);
         cv_text(9,3,&FONT_XS,"STYLE  /  3 OF 3",accent);
         cv_text(8,17,&FONT_M,STYLE_NAME[proj.gen_style],K_TEXT);
-        p=put_s(text,proj.gen_color?"7TH CHORDS":"TRIADS");p=put_s(p,"  ");p=put_u(p,GEN_OCTAVES);put_s(p," OCT");
+        p=put_s(text,COLOR_NAME[proj.gen_color%NCOLORS]);p=put_s(p,"  ");p=put_u(p,GEN_OCTAVES);put_s(p," OCT");
         cv_text(9,44,&FONT_XS,text,K_DIM);
         ag_roll(accent);
     }else if(page==PAGE_ARP){
@@ -403,7 +409,7 @@ static void noct_draw(void)
         noct_center(120,81,&FONT_XS,ui.message,K_TEXT);
     }else{
         if(generator.pending)put_s(text,"NEXT BAR / HOME: DAW");
-        else if(page==PAGE_GEN)put_s(text,"EDIT: MELODY  HOLD EDIT: HARMONY");
+        else if(page==PAGE_GEN)put_s(text,"ALGO: PHRASES  EDIT: NEW SEED");
         else if(page==PAGE_FEEL)put_s(text,"SEQ: RUN/STOP  SEQ+EDIT: UNDO");
         else if(page==PAGE_STYLE)put_s(text,"PRESET: PAGES  SEQ: RUN/STOP");
         else if(page==PAGE_SYNC)put_s(text,"GLO: TAP TEMPO  HOME: DAW");

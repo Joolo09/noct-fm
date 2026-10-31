@@ -36,7 +36,10 @@ enum { ARP_UP, ARP_DOWN, ARP_UPDOWN, ARP_RANDOM, ARP_PLAYED, ARP_CONVERGE, ARP_P
 #define NCHORDS 11                       /* keyboard chord qualities, CUSTOM last */
 #define NGSCALES 8                       /* COMPOSE scales */
 #define NGMODES 5                        /* MELODY CHORDS BOTH BASS FULL */
-#define NPROGS 8                         /* progressions per scale family */
+#define NPROGS 24                        /* progressions per scale family (half-bar chords) */
+#define NCOLORS 5                        /* triads, sevenths, add9, sus2, mixed */
+#define NMELODY 8                        /* melody characters, AUTO first */
+#define NVARS 1000                       /* ALGORITHM: phrase variations #000-999 */
 #define NSTYLES 4                        /* chord rhythm styles */
 #define NVOICINGS 6
 #define NSTRUMS 8
@@ -89,7 +92,9 @@ typedef struct {
     uint8_t arp_gate;                    /* 10..100 % of the arp step */
     uint8_t custom_n;                    /* learned chord: number of notes 2..5 */
     uint8_t custom[5];                   /* and its intervals above the played key, 0..36 */
-    uint8_t rsv6[7];
+    uint8_t gen_var_lo, gen_var_hi;      /* 0.8.1: ALGORITHM phrase variation 0..999 */
+    uint8_t gen_melody;                  /* 0.8.1: melody character, 0 AUTO */
+    uint8_t rsv6[4];
 } project_t;
 
 extern project_t proj;

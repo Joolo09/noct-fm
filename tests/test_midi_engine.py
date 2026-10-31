@@ -23,7 +23,7 @@ class MidiEngineTests(unittest.TestCase):
         for mode,following in [(0,[57,60,53,57,60]),(1,[57,53,60,57,53]),
                                (2,[57,60,57,53,57]),(4,[53,57,60,53,57])]:
             with self.subTest(mode=mode):
-                output=scenario(['wait 800',f'spin ALGO {mode}','tap ARP','out',
+                output=scenario(['wait 800','spin PRESET 5',f'spin K2 {mode}','tap ARP','out',
                     'key 7 down','key 0 down','key 4 down','wait 520',
                     'key 7 up','key 0 up','key 4 up','expect active 0','expect notes_on 0','out'])
                 notes=[int(n,16) for n in re.findall(r'out 90 ([0-9A-F]{2}) 64 -> USB',output)]
@@ -56,7 +56,7 @@ class MidiEngineTests(unittest.TestCase):
     def test_chord_types_and_shared_notes(self):
         for kind,intervals in enumerate(((0,4,7),(0,3,7),(0,2,7),(0,5,7),(0,4,7,11),(0,3,7,10))):
             with self.subTest(kind=kind):
-                output=scenario(['wait 800','tap SEL',f'spin ALGO {kind}','out','key 0 down',
+                output=scenario(['wait 800','tap SEL',f'spin K1 {kind}','out','key 0 down',
                                  'key 0 up','expect active 0','expect notes_on 0','out'])
                 notes=[int(n,16) for n in re.findall(r'out 90 ([0-9A-F]{2}) 64 -> USB',output)]
                 self.assertEqual(notes,[53+x for x in intervals])

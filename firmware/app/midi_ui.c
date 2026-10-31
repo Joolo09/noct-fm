@@ -363,7 +363,7 @@ static void page_knob(int page,int i,int delta)
         if(i==0)proj.gen_mode=(uint8_t)clamp(proj.gen_mode+delta,0,NGMODES-1);
         if(i==1){GEN_SCALE=(uint8_t)clamp(GEN_SCALE+delta,0,NGSCALES-1);revoice_keys=1;}
         if(i==2){GEN_ROOT=(uint8_t)clamp(GEN_ROOT+delta,24,96);revoice_keys=1;}
-        if(i==3)proj.gen_progression=(uint8_t)clamp(proj.gen_progression+delta,0,NPROGS-1);
+        if(i==3)proj.gen_progression=(uint8_t)clamp(proj.gen_progression+delta,0,NPROGS);   /* NPROGS: AUTO */
         compose=1;
     }else if(page==PAGE_FEEL){
         if(i==0)GEN_DENSITY=(uint8_t)clamp(GEN_DENSITY+delta,0,16);
@@ -373,10 +373,10 @@ static void page_knob(int page,int i,int delta)
         compose=1;
     }else if(page==PAGE_STYLE){
         if(i==0)proj.gen_style=(uint8_t)clamp(proj.gen_style+delta,0,NSTYLES-1);
-        if(i==1)proj.gen_color=(uint8_t)clamp(proj.gen_color+delta,0,1);
+        if(i==1)proj.gen_color=(uint8_t)clamp(proj.gen_color+delta,0,NCOLORS-1);
         if(i==2)GEN_OCTAVES=(uint8_t)clamp(GEN_OCTAVES+delta,1,3);
-        if(i==3)proj.vel=(uint8_t)clamp(proj.vel+delta,1,127);
-        compose=i<3;
+        if(i==3)proj.gen_melody=(uint8_t)clamp(proj.gen_melody+delta,0,NMELODY-1);
+        compose=1;
     }else if(page==PAGE_ARP){
         if(i==0)proj.arp_rate=(uint8_t)clamp(proj.arp_rate+delta,0,NRATE-1);
         if(i==1)proj.arp_mode=(uint8_t)clamp(proj.arp_mode+delta,0,NARP-1);
@@ -402,7 +402,7 @@ static void input(void)
      * the release scan still counts as editing, never as a second toggle. */
     for(i=0;i<NE;i++){
         turns[i]=plat_enc(i);
-        if(turns[i] && (i==EN_ALGO || (i>=EN_K1 && i<=EN_K4)))sel_edit=1;
+        if(turns[i] && i>=EN_K1 && i<=EN_K4)sel_edit=1;
     }
     ui.btn=btn;
     for(i=0;i<NB;i++)if(changed>>i&1u){
@@ -426,8 +426,12 @@ static void input(void)
     }
     if((e=turns[EN_SELECT])!=0)local_tempo(e*10);
     if((e=turns[EN_ALGO])!=0){
-        if(ui.page==PAGE_DAW)ui.page=CHORD_ON?PAGE_CHORD:PAGE_ARP;
-        page_knob(ui.page,ui.page==PAGE_GEN?3:ui.page==PAGE_ARP?1:0,e);   /* harmony / order / first knob */
+        /* ALGORITHM: browse phrase variations #000-999 from any page (the knobs keep their own jobs). */
+        char number[24],*q=number;
+        generator_vary(e);ui.dirty=1;
+        q=put_s(q,"#");if(GEN_VAR<100u)q=put_s(q,GEN_VAR<10u?"00":"0");q=put_u(q,GEN_VAR);q=put_s(q," ");
+        put_s(q,MELODY_NAME[generator.plan[generator.pending?generator.pending-1u:generator.active].character%NMELODY]);
+        say("PHRASE",number);
     }
     if((e=turns[EN_PRESET])!=0){ui.page=(uint8_t)clamp(ui.page+e,0,PAGE_COUNT-1);ui.msg_until=0;}
     ui.master_raw+=((int32_t)plat_master()-ui.master_raw)/4;
