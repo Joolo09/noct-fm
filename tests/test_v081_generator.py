@@ -51,6 +51,16 @@ class MelodyCharacterTests(unittest.TestCase):
                     self.assertEqual(pitches[-1]%12,0)
                     self.assertGreater(len(set(pitches)),2)
 
+    def test_no_note_four_times_in_a_row(self):
+        for character in (1,2,3,4,6,7,8,9,10,11,12,13):
+            for variation in (0,4,8,12,16,20,24,28,32,36):
+                with self.subTest(character=character,variation=variation):
+                    _,notes=phrase(['spin K4 30','spin PRESET 2',f'spin K4 {character}','spin PRESET -2']+
+                                   ([f'spin ALGO {variation}'] if variation else []))
+                    pitches=[n for _,n,_ in notes]
+                    self.assertFalse(any(pitches[i]==pitches[i+1]==pitches[i+2]==pitches[i+3]
+                                         for i in range(len(pitches)-3)),pitches)
+
     def test_characters_sound_different(self):
         lines=set()
         for character in range(1,8):
