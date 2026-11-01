@@ -18,9 +18,11 @@ static const uint8_t SWING_TICKS[NSWING]={0,1,2,3};   /* delay of odd sixteenths
 #define GEN_HAS_CHORDS(m) ((m)==GM_CHORDS || (m)==GM_BOTH || (m)==GM_FULL)
 #define GEN_HAS_BASS(m) ((m)==GM_BASS || (m)==GM_FULL)
 enum { CO_TRIAD, CO_SEVENTH, CO_ADD9, CO_SUS2, CO_MIXED };
-enum { ML_AUTO, ML_FLOW, ML_ARP, ML_RIFF, ML_SEQ, ML_PEDAL, ML_LEAPS, ML_CALL };
+enum { ML_AUTO, ML_FLOW, ML_ARP, ML_RIFF, ML_SEQ, ML_PEDAL, ML_LEAPS, ML_CALL, ML_RUNS, ML_OSTINATO, ML_HOOK, ML_TURNS, ML_OCTAVES, ML_ECHO };
+enum { FORM_AABA, FORM_ABAB, FORM_AAAB, FORM_ABAC, FORM_ABBA, NFORMS };
+static const char *const FORM_NAME[NFORMS]={"AABA","ABAB","AAAB","ABAC","ABBA"};
 static const char *const COLOR_NAME[NCOLORS]={"TRIADS","7THS","ADD9","SUS2","MIXED"};
-static const char *const MELODY_NAME[NMELODY]={"AUTO","FLOW","ARPEGGIO","RIFF","SEQUENCE","PEDAL","LEAPS","CALL+RESP"};
+static const char *const MELODY_NAME[NMELODY]={"AUTO","FLOW","ARPEGGIO","RIFF","SEQUENCE","PEDAL","LEAPS","CALL+RESP","RUNS","OSTINATO","HOOK","TURNS","OCTAVES","ECHO"};
 static const int8_t COLOR_TONES[4][4]={{0,2,4,0},{0,2,4,6},{0,2,4,8},{0,1,4,0}};   /* scale degrees above the root */
 static const uint8_t COLOR_COUNT[4]={3,4,4,3};
 #define GEN_VAR ((unsigned)proj.gen_var_lo|(unsigned)proj.gen_var_hi<<8)
@@ -30,7 +32,7 @@ typedef struct {
     uint8_t chords[8][4],degree[8],color[8],voices[8];   /* per half bar (equal halves when a bar has one chord) */
     uint16_t rhythm[4],bass_rhythm[4];
     uint8_t split;                     /* bit per bar: the chord changes at beat 3 */
-    uint8_t mode,gate,style,swing,minor,character,progression;
+    uint8_t mode,gate,style,swing,minor,character,progression,form;
 } composition_t;
 static struct {
     composition_t plan[2];
@@ -235,7 +237,9 @@ static void generator_regenerate(void)
     int transpose=(int)GEN_ROOT-60+12*proj.octave,density=GEN_DENSITY;
     int lift=(proj.gen_mode==GM_BOTH || proj.gen_mode==GM_FULL)?12:0;
     int8_t motif[16],contrast[16],cell[8];
-    int character=proj.gen_melody?proj.gen_melody:1+(int)music_pick(&random,7);
+    int character=proj.gen_melody?proj.gen_melody:1+(int)music_pick(&random,NMELODY-1);
+    int form=(int)music_pick(&random,NFORMS),shape=(int)music_pick(&random,4),transform=(int)music_pick(&random,3);
+    int8_t contrast2[16],answer[16];
     memset(p,0,sizeof *p);
     p->mode=proj.gen_mode;p->gate=GEN_GATE;p->character=(uint8_t)character;p->progression=(uint8_t)prog;
     p->style=proj.gen_style;p->swing=proj.gen_swing;p->minor=(uint8_t)minor;
@@ -243,15 +247,26 @@ static void generator_regenerate(void)
     if(character==ML_RIFF){
         uint16_t r=compose_riff(&random,density);
         p->rhythm[0]=p->rhythm[1]=p->rhythm[3]=r;p->rhythm[2]=compose_vary(&random,r);
+    }else if(character==ML_SEQ){
+        uint16_t r=compose_rhythm(&random,density,RH_FLOW,16);
+        p->rhythm[0]=p->rhythm[1]=p->rhythm[2]=p->rhythm[3]=r;
     }else{
-        int t=character==ML_ARP || character==ML_PEDAL?RH_GRID:character==ML_LEAPS?RH_SPARSE:RH_FLOW;
-        uint16_t r=compose_rhythm(&random,density,t,16);
-        p->rhythm[0]=p->rhythm[3]=r;
-        p->rhythm[1]=character==ML_SEQ?r:compose_vary(&random,r);
-        p->rhythm[2]=character==ML_SEQ?r:compose_rhythm(&random,density,t==RH_FLOW?RH_CONTRAST:t,16);
+        /* The phrase form decides which bars repeat the motif (A), answer it (A'), contrast (B, B') or bring
+         * a third idea (C). */
+        int t=character==ML_ARP || character==ML_PEDAL || character==ML_RUNS || character==ML_TURNS?RH_GRID:
+              character==ML_LEAPS || character==ML_OCTAVES?RH_SPARSE:character==ML_HOOK || character==ML_ECHO?RH_SYNCO:RH_FLOW;
+        uint16_t a=compose_rhythm(&random,density,t,16),b=compose_rhythm(&random,density,t==RH_FLOW?RH_CONTRAST:t,16);
+        uint16_t a2=compose_vary(&random,a),b2=compose_vary(&random,b),c=compose_rhythm(&random,density,RH_CONTRAST,16);
+        static const uint8_t roles[NFORMS][4]={{0,1,2,0},{0,2,1,3},{0,1,0,2},{0,2,1,4},{0,2,3,0}};
+        const uint16_t pool[5]={a,a2,b,b2,c};
+        for(int bar=0;bar<4;bar++)p->rhythm[bar]=pool[roles[form][bar]];
     }
+    p->form=(uint8_t)form;
     compose_contour(&random,motif,character==ML_CALL,character==ML_LEAPS);
     compose_contour(&random,contrast,1,character==ML_LEAPS);
+    compose_contour(&random,contrast2,0,character==ML_LEAPS);
+    /* The answer repeats the motif as it is, mirrored (inversion) or backwards (retrograde). */
+    for(int i=0;i<16;i++)answer[i]=(int8_t)(transform==0?motif[i]:transform==1?-motif[i]:-motif[15-i]);
     {
         /* riff cell: chord-tone heavy, never three equal notes in a row */
         static const int8_t cells[10]={0,2,4,1,-1,2,4,7,-3,5};
@@ -264,6 +279,12 @@ static void generator_regenerate(void)
     int arp_pattern=(int)music_pick(&random,4),shift=(int)music_pick(&random,3)+1;
     if(music_pick(&random,4)==0)shift=-1;
     int pedal=range>=7?7:4;
+    /* Riff-like cells for OSTINATO, HOOK and TURNS, and a run length for RUNS. */
+    static const int8_t ostinati[6][4]={{0,4,2,4},{0,2,4,2},{0,4,7,4},{0,-1,0,2},{4,2,0,2},{0,7,4,2}};
+    static const int8_t hooks[6][3]={{0,1,-1},{0,2,4},{2,1,0},{0,-1,2},{4,2,1},{0,0,2}};
+    int ost=(int)music_pick(&random,6),hook=(int)music_pick(&random,6),turn=music_pick(&random,2)?1:-1;
+    int run_len=3+(int)music_pick(&random,4),echo=music_pick(&random,2)?2:-2;
+    static const int8_t shapes[4][4]={{0,1,3,0},{0,1,2,3},{2,1,0,1},{0,2,0,2}};   /* arch, rise, fall, wave */
     /* Harmony: half-bar chords with their colours, voiced nearest the previous chord. */
     previous[0]=base-12;previous[1]=base-8;previous[2]=base-5;previous[3]=base-1;
     for(int half=0;half<8;half++){
@@ -297,11 +318,12 @@ static void generator_regenerate(void)
     int approach=minor?1:(music_pick(&random,2)?1:-1);
     int seq_start=root_near(progression[0],center>2?center-2:0);
     for(int bar=0;bar<4;bar++){
-        const int8_t *moves=bar==2?contrast:motif;
-        int hits[16],count=0,arp_base=0,riff_root=0,walk=0;
+        static const uint8_t move_roles[NFORMS][4]={{0,1,2,0},{0,2,1,2},{0,1,0,2},{0,2,1,3},{0,2,2,0}};
+        int role=character==ML_SEQ || character==ML_RIFF?(bar==2?2:0):move_roles[form][bar];
+        const int8_t *moves=role==0?motif:role==1?answer:role==2?contrast:contrast2;
+        int hits[16],count=0,arp_base=0,riff_root=0,walk=0,dir=bar&1?-1:1,anchor=0,prev=0,beat=-1,in_beat=0;
         for(int s=0;s<16;s++)if(p->rhythm[bar]>>s&1u)hits[count++]=s;
-        if(bar==1 || bar==3)degree_now=chord_tone_near(degree_now,p->degree[bar*2],CO_TRIAD);
-        if(bar==2)degree_now=fold_degree(chord_tone_near(degree_now+2,p->degree[bar*2],CO_TRIAD),range);
+        if(bar)degree_now=fold_degree(chord_tone_near(degree_now+shapes[shape][bar]-shapes[shape][bar-1],p->degree[bar*2],CO_TRIAD),range);
         for(int h=0;h<count;h++){
             int s=hits[h],half=bar*2+(s>=8),chord=p->degree[half];unsigned color=p->color[half];
             int n=COLOR_COUNT[color&3],d;
@@ -339,6 +361,41 @@ static void generator_regenerate(void)
                 else d=degree_now-music_abs(moves[h]);
                 if(!(s%4))d=chord_tone_near(d,chord,color);
                 break;
+            case ML_RUNS:
+                /* scale runs that turn at the edges and every few notes */
+                if(!h)walk=degree_now;
+                else{
+                    if(!(h%run_len))dir=-dir;
+                    walk+=dir;
+                    if(walk>=range || walk<=0)dir=-dir;
+                }
+                d=walk;
+                break;
+            case ML_OSTINATO:
+                if(!h || (s>=8 && hits[h-1]<8))riff_root=root_near(chord,center-2);
+                d=riff_root+ostinati[ost][h%4];
+                break;
+            case ML_HOOK:
+                /* a three-note figure on every beat, moved to the chord */
+                if((int)(s/4)!=beat){beat=s/4;in_beat=0;anchor=chord_tone_near(h?degree_now+moves[h]:degree_now,chord,color);}
+                d=anchor+hooks[hook][in_beat<2?in_beat:2];in_beat++;
+                break;
+            case ML_TURNS:
+                /* turns around a chord tone: note, neighbour, note, other neighbour */
+                if(!(h%4))anchor=chord_tone_near(h?degree_now+moves[h]:degree_now,chord,color);
+                d=anchor+(h%4==1?turn:h%4==3?-turn:0);
+                break;
+            case ML_OCTAVES:
+                /* a chord tone answered by its octave (a fifth in one octave of range), above when it fits */
+                {int span=range>=14?7:4;
+                if(!(h&1)){anchor=fold_degree(chord_tone_near((h?anchor:degree_now)+moves[h],chord,color),range);d=anchor;}
+                else d=anchor+span<=range?anchor+span:anchor-span>=0?anchor-span:anchor+2;}
+                break;
+            case ML_ECHO:
+                /* every other note echoes the one before a third away; the line itself keeps moving */
+                if(h&1)d=prev+echo;
+                else{d=h?degree_now+(moves[h]?moves[h]:echo):degree_now;if(!(s%4))d=chord_tone_near(d,chord,color);}
+                break;
             default:
                 d=h?degree_now+moves[h]:degree_now;
                 if(!(s%4))d=chord_tone_near(d,chord,color);
@@ -350,7 +407,7 @@ static void generator_regenerate(void)
             }
             d=fold_degree(d,range);
             while(d>0 && (skip>>(d%7)&1u))d--;
-            degree_now=d;
+            degree_now=d;prev=d;
             p->melody[bar*16+s]=(uint8_t)music_midi_pitch(base+scale_pitch(d,scale)+lift+transpose);
         }
     }
