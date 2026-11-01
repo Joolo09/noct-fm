@@ -317,6 +317,7 @@ static void generator_regenerate(void)
     int center=range/2,degree_now=chord_tone_near(center,progression[0],CO_TRIAD);
     int approach=minor?1:(music_pick(&random,2)?1:-1);
     int seq_start=root_near(progression[0],center>2?center-2:0);
+    int last1=-100,last2=-101;   /* the two previous melody degrees */
     for(int bar=0;bar<4;bar++){
         static const uint8_t move_roles[NFORMS][4]={{0,1,2,0},{0,2,1,2},{0,1,0,2},{0,2,1,3},{0,2,2,0}};
         int role=character==ML_SEQ || character==ML_RIFF?(bar==2?2:0):move_roles[form][bar];
@@ -393,7 +394,7 @@ static void generator_regenerate(void)
                 break;
             case ML_ECHO:
                 /* every other note echoes the one before a third away; the line itself keeps moving */
-                if(h&1)d=prev+echo;
+                if(h&1)d=prev+(bar&1?-echo:echo);
                 else{d=h?degree_now+(moves[h]?moves[h]:echo):degree_now;if(!(s%4))d=chord_tone_near(d,chord,color);}
                 break;
             default:
@@ -407,7 +408,17 @@ static void generator_regenerate(void)
             }
             d=fold_degree(d,range);
             while(d>0 && (skip>>(d%7)&1u))d--;
-            degree_now=d;prev=d;
+            /* No note three times in a row (PEDAL repeats on purpose; the cadence is kept): the third moves
+             * to the nearest playable degree, towards the middle first. */
+            if(character!=ML_PEDAL && d==last1 && d==last2 && !(bar==3 && h>=count-2)){
+                static const int8_t tries[4]={1,-1,2,-2};
+                for(int t=0;t<4;t++){
+                    int c=d+(d<center?tries[t]:-tries[t]);
+                    if(c<0 || c>range || (skip>>(c%7)&1u))continue;
+                    d=c;break;
+                }
+            }
+            degree_now=d;prev=d;last2=last1;last1=d;
             p->melody[bar*16+s]=(uint8_t)music_midi_pitch(base+scale_pitch(d,scale)+lift+transpose);
         }
     }
