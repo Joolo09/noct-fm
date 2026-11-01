@@ -233,5 +233,5 @@ static void midi_engine_init(void)
     visual_note_serial=0;visual_last_note=0;
     memset(&arp_engine,0,sizeof arp_engine);arp_engine.note=255u;arp_engine.random=2463534242u;
     memset(&generator,0,sizeof generator);generator.melody_note=generator.bass_note=255;generator_regenerate();
-    for(int i=0;i<128;i++)note_owners[i]=0;
+    for(int i=0;i<128;i++){note_owners[i]=0;gen_owners[0][i]=gen_owners[1][i]=0;}
 }

@@ -127,6 +127,7 @@ static void sustain_set(int on)
 static void panic(void)
 {
     all_keys_up();engine_panic();sustain_set(0);heard_clear();play(0xB0u,120,0);play(0xB0u,123,0);
+    if(proj.gen_split)for(uint32_t ch=1;ch<=2u;ch++){ctl_send(pkt3(0xB0u|ch,120,0),TO_USB|TO_BLE);ctl_send(pkt3(0xB0u|ch,123,0),TO_USB|TO_BLE);}
     ui.sustain=0;put_s(ui.last,"ALL NOTES OFF");
 }
 static void revoice(int octave_delta,int arp_toggle)
@@ -300,7 +301,7 @@ static void button_down(int b)
         break;
     case B_ENV:
         if(ui.btn>>B_ARP&1u){ui.arp_used=1;proj.arp_latch=!proj.arp_latch;arp_latch_changed();ui.dirty=1;say("ARP HOLD",proj.arp_latch?"ON":"OFF");}
-        else if(ui.btn>>B_GLO&1u){ui.glo_used=1;proj.touch=!proj.touch;touch_apply();ui.dirty=1;say("VELOCITY",proj.touch?"SENSED":"FIXED 100");}
+        else if(ui.btn>>B_GLO&1u){ui.glo_used=1;proj.touch=!proj.touch;touch_apply();ui.dirty=1;{char v[12];put_u(put_s(v,"FIXED "),proj.vel);say("VELOCITY",proj.touch?"SENSED":v);}}
         else sustain_set(1);
         break;
     case B_LFO:engine_mod(1);break;
@@ -385,13 +386,24 @@ static void page_knob(int page,int i,int delta)
     }else if(page==PAGE_SYNC){
         if(i==0)proj.clock=(uint8_t)clamp(proj.clock+delta,0,NCLK-1);
         if(i==1){plat_unlock(f);local_tempo(delta*10);return;}
-        if(i==2)proj.vel=(uint8_t)clamp(proj.vel+delta,1,127);
-        if(i==3)proj.touch=(uint8_t)clamp(proj.touch+delta,0,1);
+        if(i==2){
+            /* VELOCITY: below 1 is SENSED (velocity from the keys); turning up from SENSED returns to fixed */
+            int touch=proj.touch;
+            if(touch && delta>0)proj.touch=0;
+            else if(!touch && delta<0 && proj.vel+delta<1){proj.vel=1;proj.touch=1;}
+            else if(!touch)proj.vel=(uint8_t)clamp(proj.vel+delta,1,127);
+            if(proj.touch!=touch){plat_unlock(f);touch_apply();ui.dirty=1;ui.msg_until=0;return;}
+        }
+        if(i==3){
+            int split=proj.gen_split;
+            proj.gen_split=(uint8_t)clamp(proj.gen_split+delta,0,1);
+            /* parts already sounding stop on the channel they started on */
+            if(split!=proj.gen_split){plat_unlock(f);{uint32_t g=plat_lock();generator_chord_off();generator_bass_off();plat_unlock(g);}ui.dirty=1;ui.msg_until=0;return;}
+        }
     }
     plat_unlock(f);
     if(voice)chord_enable(1);
     else if(revoice_keys && (page==PAGE_CHORD || proj.key_scale || (CHORD_ON && CHORD_TYPE>=CH_KEY && CHORD_TYPE<=CH_KEY7)))revoice(0,0);
-    if(page==PAGE_SYNC && i==3)touch_apply();
     if(compose)generator_regenerate();
     ui.dirty=1;ui.msg_until=0;
 }

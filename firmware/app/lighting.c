@@ -11,6 +11,11 @@ static void lighting_update(void)
         if(key>=0 && key<NKEYS)bright|=1u<<key;
         else{key%=12;if(key<0)key+=12;dim|=1u<<key;}
     }
+    if(proj.key_scale){
+        /* IN SCALE: the keys of the COMPOSE key glow dim, so the scale is visible under the fingers */
+        uint32_t mask=scale_mask(GEN_SCALE);
+        for(int key=0;key<NKEYS;key++){int rel=(base+key-(int)GEN_ROOT)%12;if(rel<0)rel+=12;if(mask>>rel&1u)dim|=1u<<key;}
+    }
     if(ui.btn>>B_SEQ&1u){
         int key=((int)GEN_ROOT-53)%12;if(key<0)key+=12;dim|=1u<<key;
     }

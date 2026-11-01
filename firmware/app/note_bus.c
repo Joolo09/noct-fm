@@ -92,8 +92,10 @@ static void bus_sustain(int on)
     if(!on)for(int i=0;i<4;i++)sustained_notes[i]=0;
     plat_unlock(f);
 }
+/* SPLIT: the generator's chords and bass own notes on channels 2 and 3 (slots 1 and 2). */
+static volatile uint8_t gen_owners[2][128];
 static int bus_sounding(int note)
-{return note_owners[note] || (sustained_notes[note>>5]>>(note&31)&1u);}
+{return note_owners[note] || gen_owners[0][note] || gen_owners[1][note] || (sustained_notes[note>>5]>>(note&31)&1u);}
 /* Read-only visual telemetry. No drawing or extra MIDI work in the timer. */
 static volatile uint32_t visual_note_serial;
 static volatile uint8_t visual_last_note;
@@ -119,6 +121,29 @@ static void bus_off(int note)
         if(sustain_active)sustained_notes[note>>5]|=1u<<(note&31);
         ctl_send(0x8u|0x80u<<8|(uint32_t)note<<16,TO_USB|TO_BLE);
     }
+    plat_unlock(f);
+}
+/* Channel 1 goes through the shared keyboard bus; slots 1 and 2 are channels 2 and 3 (no sustain there). */
+static void out_on(unsigned slot,int note,uint32_t velocity)
+{
+    if(!slot){bus_on(note,velocity);return;}
+    if(note<0 || note>127 || slot>2u)return;
+    if(velocity<1u)velocity=1u;
+    if(velocity>127u)velocity=127u;
+    uint32_t f=plat_lock();
+    if(!gen_owners[slot-1u][note]++){
+        visual_last_note=(uint8_t)note;visual_note_serial++;
+        ctl_send(0x9u|(0x90u|slot)<<8|(uint32_t)note<<16|velocity<<24,TO_USB|TO_BLE);
+    }
+    plat_unlock(f);
+}
+static void out_off(unsigned slot,int note)
+{
+    if(!slot){bus_off(note);return;}
+    if(note<0 || note>127 || slot>2u)return;
+    uint32_t f=plat_lock();
+    if(gen_owners[slot-1u][note] && !--gen_owners[slot-1u][note])
+        ctl_send(0x8u|(0x80u|slot)<<8|(uint32_t)note<<16,TO_USB|TO_BLE);
     plat_unlock(f);
 }
 /* The notes one key plays: its (scale-snapped) pitch, or the chord voiced on it; ascending, valid MIDI only. */

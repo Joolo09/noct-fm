@@ -37,6 +37,7 @@ static struct {
     volatile uint8_t active,pending;
     uint8_t enabled,running,step,preview,wait_bar,resume_chord;
     uint8_t notes[4],count,melody_note,bass_note;
+    uint8_t chord_slot,bass_slot;      /* the channel slot each sounding part was started on (SPLIT may change) */
     uint16_t cursor,chord_gate,melody_gate,bass_gate;
     uint32_t history[8];               /* previous seeds for undo (UI thread only) */
     uint16_t history_var[8];
@@ -71,9 +72,9 @@ static int music_abs(int v){return v<0?-v:v;}
 static void generator_melody_off(void)
 {if(generator.melody_note!=255u)bus_off(generator.melody_note);generator.melody_note=255;generator.melody_gate=0;}
 static void generator_bass_off(void)
-{if(generator.bass_note!=255u)bus_off(generator.bass_note);generator.bass_note=255;generator.bass_gate=0;}
+{if(generator.bass_note!=255u)out_off(generator.bass_slot,generator.bass_note);generator.bass_note=255;generator.bass_gate=0;}
 static void generator_chord_off(void)
-{for(int i=0;i<generator.count;i++)bus_off(generator.notes[i]);generator.count=0;generator.chord_gate=0;}
+{for(int i=0;i<generator.count;i++)out_off(generator.chord_slot,generator.notes[i]);generator.count=0;generator.chord_gate=0;}
 static void generator_off(void){generator_melody_off();generator_bass_off();generator_chord_off();}
 static void generator_apply(void)
 {if(generator.pending){generator.active=(uint8_t)(generator.pending-1u);generator.pending=0;}}
@@ -443,7 +444,8 @@ static void generator_chord_on(const composition_t *p,unsigned bar,unsigned loca
         for(int i=0;i<p->voices[half];i++)generator.notes[i]=p->chords[half][i];
         generator.count=p->voices[half];
     }
-    for(int i=0;i<generator.count;i++)bus_on(generator.notes[i],gen_velocity(p,bar*16u+local,p->accent[bar*16u+local]?-6:0));
+    generator.chord_slot=(uint8_t)(proj.gen_split?1u:0u);
+    for(int i=0;i<generator.count;i++)out_on(generator.chord_slot,generator.notes[i],gen_velocity(p,bar*16u+local,p->accent[bar*16u+local]?-6:0));
     generator.chord_gate=(uint16_t)remaining;
     if(!generator.chord_gate)generator.chord_gate=1;
 }
@@ -469,7 +471,8 @@ static void generator_step(unsigned step)
         generator_chord_on(p,bar,local,chord_length(p->style,PLAN_SPLIT(p,bar))*p->gate/100u);
     if(GEN_HAS_BASS(p->mode) && (p->bass_rhythm[bar]>>local&1u)){
         generator_bass_off();generator.bass_note=p->bass[step];
-        bus_on(generator.bass_note,gen_velocity(p,step,0));
+        generator.bass_slot=(uint8_t)(proj.gen_split?2u:0u);
+        out_on(generator.bass_slot,generator.bass_note,gen_velocity(p,step,0));
         generator.bass_gate=(uint16_t)(hit_span(p,p->bass_rhythm,step)*p->gate/100u);
         if(!generator.bass_gate)generator.bass_gate=1;
     }

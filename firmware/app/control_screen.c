@@ -80,11 +80,11 @@ static void knob_text(int page,int knob,char *label,char *value,int *level)
         if(knob==2){put_s(put_u(value,proj.arp_oct)," OCT");*level=knob_level(proj.arp_oct,1,3);}
         if(knob==3){put_s(put_u(value,proj.arp_gate),"%");*level=knob_level(proj.arp_gate,10,100);}
     }else{
-        static const char *const names[4]={"CLOCK","BPM","VELOCITY","TOUCH"};put_s(label,names[knob]);
+        static const char *const names[4]={"CLOCK","BPM","VELOCITY","GEN OUT"};put_s(label,names[knob]);
         if(knob==0){put_s(value,CLOCK_NAME[proj.clock]);*level=knob_level(proj.clock,0,NCLK-1);}
         if(knob==1){put_u(value,proj.bpm10/10u);*level=knob_level(proj.bpm10,600,2000);}
-        if(knob==2){put_u(value,proj.vel);*level=proj.vel;}
-        if(knob==3){put_s(value,proj.touch?"SENSED":"FIXED");*level=proj.touch?127:0;}
+        if(knob==2){if(proj.touch)put_s(value,"SENSED");else put_u(value,proj.vel);*level=proj.touch?0:proj.vel;}
+        if(knob==3){put_s(value,proj.gen_split?"SPLIT 1/2/3":"ALL CH 1");*level=proj.gen_split?127:0;}
     }
 }
 static void sounding_text(char *out)
