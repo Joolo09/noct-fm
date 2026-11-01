@@ -140,3 +140,5 @@ footer{display:flex;justify-content:space-between;gap:20px;padding-top:28px;padd
 .lang{width:auto;min-height:32px;padding:0 12px;border-radius:16px;background:transparent;border:1px solid var(--line);color:var(--text);font:700 12px var(--mono);letter-spacing:1px}
 .lang:hover:not(:disabled){border-color:var(--mint);color:var(--mint);filter:none}
 .keys .hold{font:11px var(--mono);color:var(--muted)}
+.card.split{margin:-8px 0 28px}
+.card.split p{font-size:14px;color:var(--muted);margin:0}

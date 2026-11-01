@@ -94,7 +94,8 @@ typedef struct {
     uint8_t custom[5];                   /* and its intervals above the played key, 0..36 */
     uint8_t gen_var_lo, gen_var_hi;      /* 0.8.1: ALGORITHM phrase variation 0..999 */
     uint8_t gen_melody;                  /* 0.8.1: melody character, 0 AUTO */
-    uint8_t rsv6[4];
+    uint8_t gen_split;                   /* 0.9: generator output: 0 all on channel 1, 1 melody 1 / chords 2 / bass 3 */
+    uint8_t rsv6[3];
 } project_t;
 
 extern project_t proj;
