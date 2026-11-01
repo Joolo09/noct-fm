@@ -442,7 +442,8 @@ static void input(void)
         char number[24],*q=number;
         generator_vary(e);ui.dirty=1;
         q=put_s(q,"#");if(GEN_VAR<100u)q=put_s(q,GEN_VAR<10u?"00":"0");q=put_u(q,GEN_VAR);q=put_s(q," ");
-        put_s(q,MELODY_NAME[generator.plan[generator.pending?generator.pending-1u:generator.active].character%NMELODY]);
+        {const composition_t *np=&generator.plan[generator.pending?generator.pending-1u:generator.active];
+         q=put_s(q,MELODY_NAME[np->character%NMELODY]);q=put_s(q," ");put_s(q,FORM_NAME[np->form%NFORMS]);}
         say("PHRASE",number);
     }
     if((e=turns[EN_PRESET])!=0){ui.page=(uint8_t)clamp(ui.page+e,0,PAGE_COUNT-1);ui.msg_until=0;}

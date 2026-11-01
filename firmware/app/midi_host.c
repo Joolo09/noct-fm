@@ -74,6 +74,7 @@ int app_expect(const char *what,int *got)
     else if(!strcmp(what,"touch_on"))n=proj.touch;
     else if(!strcmp(what,"melody"))n=proj.gen_melody;
     else if(!strcmp(what,"character"))n=generator.plan[generator.active].character;
+    else if(!strcmp(what,"form"))n=generator.plan[generator.active].form;
     else if(!strcmp(what,"split"))n=generator.plan[generator.active].split;
     else if(!strcmp(what,"voicing"))n=proj.chord_voicing;
     else if(!strcmp(what,"strum"))n=proj.chord_strum;

@@ -40,8 +40,8 @@ class AlgorithmTests(unittest.TestCase):
 
 class MelodyCharacterTests(unittest.TestCase):
     def test_every_character_keeps_count_key_and_cadence(self):
-        for character in range(1,8):
-            for variation in (0,7):
+        for character in range(1,14):
+            for variation in (0,7,301):
                 with self.subTest(character=character,variation=variation):
                     _,notes=phrase(['spin PRESET 2',f'spin K4 {character}','spin PRESET -2']+
                                    ([f'spin ALGO {variation}'] if variation else []))

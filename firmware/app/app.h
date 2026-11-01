@@ -38,7 +38,7 @@ enum { ARP_UP, ARP_DOWN, ARP_UPDOWN, ARP_RANDOM, ARP_PLAYED, ARP_CONVERGE, ARP_P
 #define NGMODES 5                        /* MELODY CHORDS BOTH BASS FULL */
 #define NPROGS 24                        /* progressions per scale family (half-bar chords) */
 #define NCOLORS 5                        /* triads, sevenths, add9, sus2, mixed */
-#define NMELODY 8                        /* melody characters, AUTO first */
+#define NMELODY 14                       /* melody characters, AUTO first */
 #define NVARS 1000                       /* ALGORITHM: phrase variations #000-999 */
 #define NSTYLES 4                        /* chord rhythm styles */
 #define NVOICINGS 6
