@@ -24,6 +24,7 @@ with zipfile.ZipFile(downloads/'NOCT-DAW-scripts.zip','w',zipfile.ZIP_DEFLATED) 
         if '__pycache__' not in file.parts:
             archive.write(file,file.relative_to(root/'integrations'))
     archive.write(root/'README.md','README.md')
+    archive.write(root/'README.ru.md','README.ru.md')
 if args.firmware:
     data = args.firmware.read_bytes()
     if len(data) < 960 or len(data) > 2*1024*1024:
