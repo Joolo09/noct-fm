@@ -1,221 +1,186 @@
-# NOCT / AFTERGLOW 0.9.2
+# NOCT FM
 
-**AFTER HOURS / IN CONTROL** — один постоянный MIDI-пресет для M-VAVE FM-1, FL Studio и Ableton Live.
+**MIDI controller firmware for the M-VAVE FM-1, made for FL Studio and Ableton Live.**
 
-**[Установщик и DAW-скрипты](https://joolo09.github.io/noct-fm/)** · **[Интерактивный эмулятор](emulator/README.md)**
+Keys, one-finger chords, a phrase generator, an arpeggiator, mixer knobs and DAW transport — on one fixed MIDI
+preset. The FM-1's built-in synth is switched off: your DAW makes the sound.
 
-![Анимация реального C-приложения](preview/noct-fm.gif)
+**[Install from the browser](https://joolo09.github.io/noct-fm/)** · [Русская версия](README.ru.md) ·
+[Changelog](CHANGELOG.md) · [Emulator](emulator/README.md)
 
-## Что нового в 0.9.2 — аудит по промту
+![The real firmware screen](preview/noct-fm.gif)
 
-[`docs/IMPROVE_PROMPT.md`](docs/IMPROVE_PROMPT.md) — промт для улучшения прошивки: жёсткие правила «не окирпичить», чек-лист аудита, порядок работы и критерии готовности. Версия 0.9.2 — результат его выполнения.
+> **Experimental firmware.** Keep the official M-UPGRADE tool and the recovery steps for your FM-1 at hand before
+> installing (see [Safety and recovery](#safety-and-recovery)).
 
-- **Фаззинг.** 2000 случайных сеансов на настоящем C-коде (клавиши, удержание и нажатие кнопок, все крутилки, MIDI Clock, Start/Stop/Continue, Song Position, sustain, входящие ноты; половина без Panic): ни одной висящей ноты ни на одном канале. 200 сеансов теперь проверяются в CI (`tests/test_fuzz.py`).
-- **Мелодии без застревания.** Музыкальный аудит 130 фраз показал, что ECHO, HOOK, LEAPS и SEQUENCE иногда повторяли одну ноту 4–5 раз подряд. Теперь третий повтор подряд сдвигается на ближайшую ступень лада к середине (кроме PEDAL и финальной каденции); ECHO отвечает то выше, то ниже, его диапазон вырос с 7,5 до 12 полутонов. Повторов ×4 больше нет.
+## Contents
 
-## Что нового в 0.9.1
+- [What it does](#what-it-does)
+- [Install](#install)
+- [Connect your DAW](#connect-your-daw)
+- [Controls](#controls)
+- [The generator](#the-generator)
+- [Lights and screen](#lights-and-screen)
+- [Safety and recovery](#safety-and-recovery)
+- [Development](#development)
+- [Credits and licences](#credits-and-licences)
 
-**Ещё больше мелодий.** Шесть новых характеров (STYLE, K4), всего 13 + AUTO:
+## What it does
 
-| Характер | Как звучит |
+| | |
 | --- | --- |
-| RUNS | гаммовые пассажи, разворачиваются у краёв диапазона и каждые 3–6 нот |
-| OSTINATO | повторяющаяся фигура из 4 нот, переносится на каждый аккорд |
-| HOOK | короткая фигура из трёх нот на каждую долю |
-| TURNS | мелизмы вокруг тона аккорда: нота, соседняя, нота, другая соседняя |
-| OCTAVES | тон аккорда и его октава (квинта при диапазоне в одну октаву) |
-| ECHO | каждая вторая нота — эхо предыдущей на терцию в сторону |
+| **Keyboard** | 27 keys (F3–G5), ±3 octaves, fixed velocity or key-sensed, optional lock to a scale |
+| **Chords** | One key plays a chord: 11 types including *in key* and a learned *memory* chord; inversions, open, drop 2, strum |
+| **Generator** | 4-bar phrases: melody, chords, bass or all three; 8 scales, 24 progressions + AUTO, 13 melody characters; 1000 variations per seed on the ALGORITHM dial |
+| **Arpeggiator** | 7 orders, 1/4 … 1/32, 1–3 octaves, gate, swing, latch |
+| **DAW control** | Mixer knobs, play / stop / record, FX, master, tap tempo; BPM and transport sync both ways |
+| **MIDI** | Notes on channel 1 (generator can split to channels 1/2/3), controls on channel 16, MIDI Clock in |
 
-**Формы фразы.** Каждая вариация ALGORITHM выбирает форму AABA, ABAB, AAAB, ABAC или ABBA: какие такты повторяют мотив, какие отвечают, контрастируют или приносят третью идею. Ответ на мотив звучит как есть, зеркально (обращение) или задом наперёд (ракоход). Рельеф фразы — арка, подъём, спад или волна. Форма показывается во всплывающем сообщении (`PHRASE #042 RIFF ABAB`). Каденция на тонику и точное число нот в такте сохраняются. В проверке из 60 вариаций одного зерна 59 дали разные фразы.
+## Install
 
-## Что нового в 0.9
+1. Open **https://joolo09.github.io/noct-fm/** in Chrome or Edge on a computer.
+2. Close your DAW, connect the FM-1 with a USB data cable and press **Connect**.
+3. Press **Load** (or choose a downloaded `.fwsc`), tick the checkbox and press **Install**.
 
-**Три инструмента из генератора.** SYNC, K4 → SPLIT: мелодия идёт на MIDI-канале 1, аккорды — на 2, бас — на 3 (по умолчанию всё на канале 1, как раньше). В FL Studio назначь трём каналам MIDI-вход 1, 2, 3 (Channel settings → MIDI); в Live — три MIDI-дорожки со входом NOCT FM-1 и Ch. 1/2/3. Клавиатура, аккорды клавиатуры и ARP всегда на канале 1. Переключение во время игры гасит звучащие ноты на том канале, где они начались; Panic очищает и каналы 2–3.
+The installer checks the SHA-256, the size, the device model and, after the restart, the firmware identity. It
+only accepts the NOCT build published with it. Settings from older NOCT versions are migrated automatically.
 
-**Velocity и чувствительность — одна ручка** (SYNC, K3): 1–127 — фиксированная сила, поворот ниже 1 — SENSED (сила нажатия клавиш), поворот вверх возвращает фиксированную. GLO + ENV переключает так же, как раньше.
+## Connect your DAW
 
-**Лад на клавишах.** При KEYS: IN SCALE ноты лада COMPOSE тускло светятся на клавиатуре.
+Download the scripts from the site (or use [`integrations/`](integrations)). They pass tempo, transport, record
+and FX state; notes need no script.
 
-## Что нового в 0.8.2
+**FL Studio** — copy `integrations/FL Studio/NOCT` to `Settings/Hardware/` in your User data folder, restart FL,
+pick NOCT FM-1 → Controller type **NOCT FM**, and give its input and output the same Port number. For clock sync
+enable *Send master sync* on the output. Two-way tempo needs FL MIDI scripting API 38+.
 
-ARP больше не включается сам при запуске: после включения FM-1 арпеджиатор всегда выключен, даже если он был включён при SAVE. Его настройки (сетка, порядок, октавы, длина ноты, latch) сохраняются как раньше.
+**Ableton Live 11/12** — copy `integrations/Ableton Live/NOCT` to `Remote Scripts/` in your User Library,
+restart Live, choose Control Surface **NOCT** with Input/Output **NOCT FM-1**, and enable *Track* on the input and
+*Sync* on the output.
 
-## Что нового в 0.8.1
-
-**ALGORITHM — листание фраз.** Крутилка ALGORITHM больше не дублирует K1/K2/K4: на любой странице она перебирает вариации генератора #000–999. Каждая вариация — своя мелодия, ритм, бас и (с гармонией AUTO) своя прогрессия. Поворот назад возвращает точно ту же фразу; номер сохраняется по SAVE. EDIT берёт новое зерно — ещё 1000 вариаций.
-
-**8 характеров мелодии** (STYLE, K4): AUTO (свой для каждой вариации), FLOW, ARPEGGIO (ходы по тонам аккорда), RIFF (повторяющаяся ячейка в полтакта), SEQUENCE (мотив переносится по ступеням), PEDAL (выдержанная верхняя нота над движущимся голосом), LEAPS (широкие скачки по тонам аккорда), CALL+RESP (вопрос вверх — ответ вниз). У каждого характера свой ритмический шаблон. Каденция на тонику сохраняется.
-
-**24 прогрессии на семейство ладов + AUTO** (COMPOSE, K4). Часть прогрессий меняет аккорд на 3-й доле (`I/V-vi/IV…`), на экране это видно как `C/G`. AUTO выбирает прогрессию для каждой вариации ALGORITHM.
-
-**Окраски аккордов** (STYLE, K2): TRIADS, 7THS, ADD9, SUS2, MIXED (доминанта — септаккорд, тоника — add9 или трезвучие, остальное — разнообразно). Голосоведение без перекрещивания голосов.
-
-Настройки 0.8.0 загружаются без изменений (вариация #000, характер AUTO). Velocity по-прежнему на SYNC (K3).
-
-## Что нового в 0.8
-
-**Композитор 2.0.** Фраза из четырёх тактов строится как настоящая мелодия: такт 1 — мотив, такт 2 — ответ (тот же ритм с одним сдвигом, мотив переносится на следующий аккорд), такт 3 — контраст и кульминация на ступень выше, такт 4 — каденция: поступенное приближение и окончание на тонике. На сильных долях — тоны аккорда, после скачка — шаг назад, пропущенные ступени пентатоник не звучат.
-
-- **5 режимов:** MELODY, CHORDS, BOTH, **BASS** (бас-линия по ритму мелодии: тоника, квинта, октава, хроматический подход к следующему аккорду), **FULL** (бас + аккорды + мелодия).
-- **8 ладов:** Major, Minor, Minor pentatonic, Dorian, Harmonic minor, Major pentatonic, Mixolydian, Phrygian. **8 гармоний** на семейство; на экране — римские цифры, вычисленные из лада (например, `i-iv-V-i` для гармонического минора), и названия аккордов текущей фразы (`C  Am  F  G`) с подсветкой играющего такта.
-- **STYLE** (новая страница): аккомпанемент HOLD / PULSE / OFFBEAT / BROKEN, трезвучия или септаккорды (`Cmaj7`, `Am7`, `G7`…), диапазон, velocity.
-- **RHYTHM:** свинг (STRAIGHT, 58%, 67% триольный, 75%) — для генератора и ARP 1/8, 1/16; **HUMAN** — акценты по долям и живой разброс velocity (FLAT = все ноты одинаковые, как раньше).
-- **EDIT** — новая мелодия при той же гармонии; **удержание EDIT 0,6 с** — новая мелодия и гармония; **SEQ + EDIT** — отмена (до 8 шагов назад).
-
-**Аккорды с клавиатуры.**
-- Новые типы: DOM7, POWER, **IN KEY** и **IN KEY 7TH** (каждая клавиша играет аккорд своей ступени в тональности COMPOSE: C → C, D → Dm, E → Em7…) и **MEMORY**.
-- **Память аккорда:** удерживая SEL, нажми 2–5 клавиш — форма запоминается и затем играется от любой клавиши (сохраняется по SAVE). Одна клавиша под SEL ничего не перезаписывает.
-- **Раскладки:** CLOSE, INV 1, INV 2, OPEN, DROP 2, + BASS (тоника октавой ниже).
-- **Страм:** 6–70 мс между голосами снизу вверх; отпускание клавиши до конца страма не оставляет висящих нот.
-- **KEYS: IN SCALE** — клавиатура привязывается к ладу и корню COMPOSE: невозможно взять «фальшивую» ноту.
-
-**Прочее.** Tap tempo: на странице SYNC нажимай GLO в темп — BPM (среднее по последним 4 нажатиям) сразу уходит в DAW. ARP: режимы CONVERGE и PEDAL, длина ноты 10–100%. Panic дополнительно отправляет All Sound Off (CC120). Буферы ARP вынесены со стека прерывания таймера.
-
-**Интерфейс.** Кольцевые индикаторы для всех параметров на всех страницах, панели со скруглением, всплывающие сообщения, индикатор долей в шапке, индикаторы MIDI IN/OUT, оранжевый маркер **несохранённых изменений**, точки ARP/GEN на вкладках и указатель подстраницы GEN (1–3).
-
-**Совместимость и безопасность.** Загрузчик, USB, OTA и flash-драйвер не изменялись. Настройки 0.7 (формат 5) автоматически переносятся в формат 6 без изменения звучания; если откатиться на старую прошивку, она просто начнёт с настроек по умолчанию. Сохранение во flash — только по SAVE.
-
-## Исправления 0.7 / CHORDS и подсветка
-
-SEL включает полифонический режим клавиатуры и выключает ARP. Выбор качества аккорда ручкой K1 на CHORDS также включает этот режим. Включение ARP возвращает одиночные ноты в его пул. Так CHORDS выдаёт одновременные трезвучия/септаккорды без MIDI Clock, а сохранённое сочетание CHORDS+ARP нормализуется при загрузке. Генератор CHORDS/BOTH остаётся отдельным источником. Выходная USB-очередь увеличена до 256 событий: быстрое переозвучивание 38 нот (38 Off + 38 On) теперь помещается целиком до следующего обслуживания endpoint. Входная очередь сохранена отдельно.
-
-**Яркие клавиши — реально звучащие ноты** клавиатуры, аккорда, генератора, ARP или входящего MIDI на канале 1. Удержанная клавиша, ожидающая шага ARP, светится тускло. Ноты за пределами текущих 27 клавиш имеют тусклую ссылку в нижней октаве; это ориентир класса высоты, не указание точной октавы. Sustain сохраняет свет до отпускания педали. Stop очищает входящие ноты и таймерные источники, но не гасит удержанные обычные клавиши. Panic очищает все источники и sustain.
-
-**Кнопки:** постоянный яркий свет — активная функция; тусклый — доступное действие; короткий периодический импульс — открытая страница без включённой функции. HOME обозначает страницу DAW. ENV/LFO показывают sustain/modulation, OCT± — транспонирование. PLAY — зелёный при воспроизведении, красный при записи; SAVE кратко загорается после успешного сохранения. У матрицы FM-1 две яркости, а не индивидуальный RGB для каждой клавиши.
-
-Эмулятор отображает те же маски LED, которые получает `plat_lights` на устройстве. Для ручной проверки есть «Фиксировать клавиши»: один клик удерживает виртуальную клавишу, второй отпускает. Это функция стенда, не latch прошивки.
-
-## AFTERGLOW / визуальный мир
-
-Ночной пиксельный город, кольца планеты, мерцающие звёзды, комета, движущаяся сетка и мягкое северное сияние. Каждая страница получает свой акцент: мята, розовый, сиреневый, янтарный и голубой. Значения ручек расположены на отдельных тёмных панелях, чтобы анимация не мешала чтению.
-
-- DAW: вращающийся спутник, городские окна и частицы, реагирующие на Note On; логотипы FL Studio и Live.
-- CHORDS: созвездие активных классов высоты и подсвеченная клавиатура с затуханием после Note Off.
-- COMPOSE: piano roll из подготовленной фразы; отдельные слои аккордов и мелодии, указатель шага и четыре индикатора тактов.
-- RHYTHM: круг из 16 шагов и пульсация от реально отправленных нот.
-- ARP: световые ступени и ноты удержанного пула.
-- SYNC: орбита 24 PPQN; движение от реального clock, явное ожидание при его потере.
-
-Сцены рисуются целочисленным C-кодом в двух полосах 240×144 и 240×96, с ограничением обновления 20 FPS. Обработчик MIDI только обновляет короткую телеметрию; графика не выполняется в таймере. Это визуализация MIDI, не анализатор аудиосигнала. `tools/render-afterglow.py` записывает 144 реальных кадра и создаёт GIF; это не отдельный JavaScript-макет.
-
-![Шесть сцен AFTERGLOW](preview/afterglow-scenes.png)
-
-## Управление 0.9.2
-
-Страница на экране определяет назначение четырёх ручек. Удерживать кнопки для настроек не требуется. **HOME** всегда возвращает CC20–23 для DAW. **PRESET** листает DAW → CHORDS → COMPOSE → RHYTHM → STYLE → ARP → SYNC. Открытие страницы через PRESET не включает музыкальную функцию.
-
-| Страница | K1 | K2 | K3 | K4 |
-| --- | --- | --- | --- | --- |
-| DAW / HOME | CC20 Volume | CC21 Pan | CC22 | CC23 |
-| CHORDS | Тип аккорда (11) | Раскладка | Страм | Клавиши: CHROMATIC / IN SCALE |
-| COMPOSE | Melody / Chords / Both / Bass / Full | Лад (8) | Корневая нота | Гармония (24 + AUTO) |
-| RHYTHM | Нот на такт 0–16 | Длительность 10–100% | Свинг | Human (акценты) |
-| STYLE | Hold / Pulse / Offbeat / Broken | Окраска: Triads / 7ths / Add9 / Sus2 / Mixed | Диапазон 1–3 | Характер мелодии (AUTO + 13) |
-| ARP | Деление сетки | Порядок нот (7) | Октавы ARP | Длина ноты 10–100% |
-| SYNC | AUTO / INTERNAL / EXTERNAL | BPM | Velocity (ниже 1 — SENSED) | Выход генератора: CH 1 / SPLIT 1-2-3 |
-
-На экране видны названия нот C4, D#4 и гармоний I-vi-IV-V, а также LOCAL / PLAY / STOP / WAIT. LOCAL означает генерацию при остановленной DAW. Четыре ручки на странице настроек **не отправляют** CC; вернись HOME для управления микшером или назначенными параметрами. Удержание HOME 0,6 с переключает MIXER (CC20–23) / MIDI MAP (CC24–27). Режим и отдельные значения ручек сохраняются по SAVE; MIDI-пресет и канал нот остаются едиными. Входящий feedback DAW продолжает обновлять их значения.
-
-| Кнопка/энкодер | Действие |
-| --- | --- |
-| HOME | Страница DAW; удержание 0,6 с переключает MIXER / MIDI MAP |
-| SEL | Открыть CHRD и включить аккорды; повторный короткий SEL на CHRD — выключить; SEL + 2–5 клавиш — запомнить аккорд MEMORY |
-| ARP | Арпеджиатор вкл/выкл, страница ARP |
-| SEQ | Генератор вкл/выкл, страница COMPOSE; не запускает DAW |
-| EDIT | Новая мелодия (гармония сохраняется); удержание 0,6 с — новая гармония; SEQ + EDIT — отмена; изменение со следующего такта |
-| GLO | Открыть SYNC; на открытой SYNC — tap tempo; источник clock остаётся прежним |
-| PLAY | Пуск/стоп DAW; при локальной генерации первый нажим останавливает её |
-| REC | Общая запись DAW вкл/выкл |
-| FX | Эффекты выбранного mixer track FL / Device On выбранного устройства Live |
-| ENV | Sustain, пока удерживается |
-| LFO | Плавная модуляция CC1 вверх/вниз |
-| OCT− / OCT+ | Транспонирование −3…+3 с корректными Note Off |
-| SAVE | Сохранить при остановленных нотах и транспорте |
-| SELECT | BPM +/−1 на любой странице |
-| ALGORITHM | Листать фразы генератора #000–999 на любой странице (не меняет параметры страниц) |
-| PRESET | Выбор страницы; не меняет MIDI-канал или программу |
-| MASTER | CC7 master DAW |
-
-Удержание SEQ дольше 350 мс открывает COMPOSE без переключения воспроизведения при отпускании. SEQ + клавиша выбирает корень без лишней ноты. ARP + ENV — latch. FX + REC — panic. GLO + ENV — чувствительность; GLO + PLAY — переключение clock для совместимости. Основное управление доступно через видимые страницы.
-
-## Генератор и музыка
-
-Генератор сочиняет повторяемую фразу из четырёх тактов 4/4, отдельно от ARP и клавиатурного CHORDS. MELODY — мелодия «мотив–ответ–контраст–каденция», CHORDS — аккомпанемент выбранного стиля, BOTH — мелодия над аккордами, BASS — бас-линия, FULL — бас, аккорды и мелодия. Аккорды строятся по ступеням выбранного лада с ближайшими обращениями (голосоведение). Пентатоники ограничивают мелодию пятью ступенями; гармония берётся из родительского мажора/минора.
-
-Начни с PRESET → COMPOSE, выбери режим и гармонию, затем нажми SEQ. PRESET вправо открывает RHYTHM и STYLE. Изменения применяются на следующем такте, о чём сообщает NEXT BAR. EDIT создаёт новую мелодию, удержание EDIT — ещё и новую гармонию, SEQ + EDIT возвращает предыдущую фразу. После SAVE seed и настройки воспроизводятся после перезапуска. Автосохранения нет: оранжевый квадрат в шапке напоминает о несохранённых изменениях.
-
-Повторный feedback Stop не выключает локальное прослушивание и sustain. Continue сохраняет позицию независимо от порядка feedback и MIDI-сообщений; явный MIDI Start возвращает начало. Song Position Pointer принимается по USB и TRS и устанавливает позицию в четырёхтактовой фразе. Октавы транспонируют мелодию и аккорды; только ноты за пределами MIDI 0–127 переносятся на допустимую октаву с сохранением класса высоты.
-
-Генератор не запускается при загрузке. Stop гасит его ноты, сохраняя включённое состояние; PLAY/Start/Continue возобновляют воспроизведение. После Stop одна кнопка SEQ также возобновляет локальное прослушивание; второе нажатие останавливает и выключает генератор. Обычные удержанные клавиши от него независимы. При играющей DAW включение SEQ ждёт границу такта. Для фазовой синхронизации нужен MIDI Clock; BPM feedback передаёт только скорость.
-
-AUTO использует clock при его наличии, а без него — внутреннюю сетку с BPM DAW. После захвата clock во время playback его потеря гасит ноты и показывает WAIT до возвращения clock. EXTERNAL всегда ждёт clock. Смена страницы ничего не меняет в синхронизации.
-
-В 0.7.2 выбор типа аккорда при удержанном SEL больше не выключает CHORDS при отпускании. SEL сразу открывает CHRD для K1/ALGORITHM; возврат через SEL с другой страницы сохраняет включённые аккорды. Повторный SEL без вращения ручек на самой CHRD выключает режим. На экране показаны ON/OFF и индикатор активности возле CHRD.
-
-Клавиатура хроматическая F3–G5, ноты — канал 1. Клавиатурный CHORDS играет выбранный тип аккорда от каждой физической ноты. Синтезатор, USB audio и BLE отключены. Пользовательских банков и смены MIDI-канала с панели нет.
-
-## Интерактивный эмулятор
-
-`python tools/emulator.py --port 8766` после сборки host. Открой `http://127.0.0.1:8766/`. На Windows доступен `emulator/start.cmd`. Это постоянный процесс с тем же C-кодом, экраном и счётчиком владельцев MIDI-нот. В браузере доступны все кнопки, ручки, 27 клавиш, тестовый звук, MIDI-журнал и DAW Start/Stop/BPM/24 PPQN. Эмулятор слушает только 127.0.0.1 и не отправляет события реальному FM-1 или DAW.
-
-Проверены вручную прямое изменение настроек, возврат HOME к CC, аккорды клавиатуры, запуск/остановка генератора, смена страниц, длительности/плотность и ожидающий clock. Эти сценарии дополнены автоматическими регрессионными проверками. Физический USB и клавиатурные датчики эмулятор не проверяет.
-
-## Настройка FL Studio и Ableton
-
-**DAW-скрипты 0.3 совместимы с прошивкой 0.5; переустанавливать их для генератора не требуется.** Они передают темп и FX. Скрипты 0.2 поддерживают только ноты, контроллеры и транспорт. Скрипты подключаются к одной DAW за раз.
-
-**FL Studio:** папка `integrations/FL Studio/NOCT` → `Settings/Hardware/NOCT` внутри User data folder. Перезапусти FL, включи NOCT FM-1, выбери Controller type → NOCT FM. Входу и выходу назначь один Port number. Для двусторонней установки темпа нужна FL MIDI scripting API 38+ (`mixer.setCurrentTempo`), доступная в актуальной FL Studio. Для фазовой синхронизации включи Send master sync на выходе MIDI и Options → Enable MIDI master sync.
-
-**Ableton Live 11/12:** папка `integrations/Ableton Live/NOCT` → `Remote Scripts/NOCT` внутри User Library. Перезапусти Live; Control Surface → NOCT; Input/Output → NOCT FM-1. Track включи для нот, Sync на MIDI-выходе — для MIDI Clock. Выбери MIDI-дорожку и инструмент; для FX выбери нужное устройство. Remote нужен только для дополнительных ручных MIDI Map.
-
-| Ручка | FL Studio | Ableton Live |
+| Knob (DAW page) | FL Studio | Ableton Live |
 | --- | --- | --- |
-| KNOB 1 / CC20 | Volume выбранного mixer track | Volume выбранной track |
-| KNOB 2 / CC21 | Pan выбранного mixer track | Pan выбранной track |
-| KNOB 3 / CC22 | Stereo separation | Send A |
-| KNOB 4 / CC23 | Volume выбранного channel | Send B |
+| K1 · CC20 | Mixer track volume | Track volume |
+| K2 · CC21 | Mixer track pan | Track pan |
+| K3 · CC22 | Stereo separation | Send A |
+| K4 · CC23 | Channel volume | Send B |
 
-В MIDI MAP назначь CC24–27 через Link to controller в FL Studio или MIDI Map в Live (Remote для MIDI-входа). Эти CC не перехватываются DAW-скриптами; в MIXER остаются прежние Volume/Pan/Send назначения.
+Hold **HOME** for 0.6 s for **MIDI MAP**: K1–K4 then send CC24–27 for your own mappings (FL *Link to controller*,
+Live *MIDI Map*).
 
-BPM feedback работает и без Sync/Clock. Сами BPM-сообщения сообщают скорость, но не положение внутри такта: для точного старта по сетке включи MIDI Clock и используй Start/Continue. При отсутствии DAW-скрипта BPM оценивается по 24 входящим clock-сообщениям. При наличии скрипта приоритет у точного BPM DAW, чтобы не показывать дрожание из-за миллисекундного измерения.
+**Three instruments from the generator** — on the SYNC page set K4 to **SPLIT**: melody on channel 1, chords on 2,
+bass on 3. In FL give three channels MIDI input channels 1, 2, 3; in Live make three MIDI tracks with input NOCT
+FM-1 and Ch. 1, Ch. 2, Ch. 3. The keyboard always plays on channel 1.
 
-Протокол на канале 16: CC7 master; CC20–23 ручки; CC110/111/112 play/stop/record; CC113 FX toggle (127), feedback состояния 0/127; CC114 BPM high и CC115 BPM low — 14-битное значение BPM×10, всегда парой; CC116/117 playback/recording feedback; CC119 value 2 — один MIDI-пресет. Ноты, sustain и modulation — канал 1 (генератор в режиме SPLIT: аккорды — канал 2, бас — канал 3). Обратная связь не эхоится и не вызывает запись flash.
+## Controls
 
-## Установка, сборка и проверки
+The screen shows a page; the four knobs edit what that page shows. **PRESET** flips pages, **HOME** returns the
+knobs to the DAW. Nothing on a settings page sends CC.
 
-[Веб-установщик](https://joolo09.github.io/noct-fm/) работает в Chrome/Edge по HTTPS и USB MIDI SysEx. Пакет 0.9.2 имеет identity `FM-1_90625000902`. Проверяются SHA-256, размер, модель и identity после перезапуска. USB audio отсутствует; после установки проверь выбор MIDI-порта в DAW. Настройки 0.3 сохраняются при миграции; generator gate меняется на 85%, добавляются seed и выбор режима. Старые 0.1/0.2 также мигрируют в постоянную маршрутизацию.
+| Page | K1 | K2 | K3 | K4 |
+| --- | --- | --- | --- | --- |
+| **DAW** | CC20 volume | CC21 pan | CC22 | CC23 |
+| **CHORDS** | Type (11) | Voicing | Strum 6–70 ms | Keys: chromatic / in scale |
+| **COMPOSE** | Mode: melody, chords, both, bass, full | Scale (8) | Root | Progression (24) or AUTO |
+| **RHYTHM** | Notes per bar 0–16 | Note length | Swing | Human (velocity accents) |
+| **STYLE** | Chords: hold, pulse, offbeat, broken | Colour: triads, 7ths, add9, sus2, mixed | Range 1–3 oct | Melody character (AUTO + 13) |
+| **ARP** | Rate | Order (7) | Octaves | Gate |
+| **SYNC** | Clock: auto, internal, external | BPM | Velocity; below 1 = sensed | Generator out: ch 1 / split |
 
-Кнопка загрузки обновляет манифест перед скачиванием. Каждый пакет публикуется по отдельному адресу с SHA-256 в имени, поэтому открытая ранее вкладка не смешивает разные сборки. Если публикация сменилась во время скачивания, установщик один раз обновляет сведения и повторяет загрузку; файл с неверным размером или SHA-256 не допускается к записи.
+| Button | Action |
+| --- | --- |
+| **HOME** | DAW page; hold 0.6 s: mixer / MIDI map |
+| **PRESET** (dial) | Next / previous page |
+| **ALGORITHM** (dial) | Browse generator phrases #000–999, on any page |
+| **SELECT** (dial) | BPM ±1 |
+| **SEL** | Chords on; again on the CHORDS page: off |
+| **SEL + 2–5 keys** | Learn a MEMORY chord |
+| **SEQ** | Generator start / stop |
+| **SEQ + key** | Set the generator root |
+| **EDIT** | New seed (1000 new phrases); hold 0.6 s: also a new progression |
+| **SEQ + EDIT** | Undo, up to 8 steps |
+| **ARP** | Arpeggiator on / off (always off after power-on) |
+| **ARP + ENV** | Latch |
+| **GLO** | SYNC page; on the SYNC page: tap tempo |
+| **PLAY / REC** | DAW transport; PLAY also stops a local generator preview |
+| **FX** | FX of the selected FL mixer track / Live device on |
+| **ENV** | Sustain while held |
+| **LFO** | Mod wheel (CC1) up while held |
+| **OCT− / OCT+** | Octave −3 … +3 |
+| **SAVE** | Save settings (only while nothing is playing) |
+| **FX + REC** | Panic: all notes off |
+| **MASTER** | DAW master volume (CC7) |
 
-Это экспериментальная прошивка. Перед установкой сохрани данные и подготовь официальный M-UPGRADE и процедуру восстановления для своей версии FM-1. Полный аппаратный цикл с двумя DAW ещё не проверен. Мы проверяем настоящую C-программу в симуляторе и скрипты с подставными DAW API; эти проверки не заменяют тест USB, flash и звука внутри DAW на реальном FM-1.
+There is no autosave: an orange square in the screen header means unsaved changes.
+
+## The generator
+
+Press **SEQ** to play a looping 4-bar phrase. With the DAW stopped it previews locally; with the DAW playing it
+starts on the next bar and follows MIDI Clock. Changes apply from the next bar (`NEXT BAR` on screen).
+
+- **Phrase.** Motif, answer, contrast and a cadence that ends on the tonic. Each variation picks a form
+  (AABA, ABAB, AAAB, ABAC, ABBA), answers the motif as it is, inverted or backwards, and shapes the line as an arch,
+  rise, fall or wave. Strong beats land on chord tones; nothing is out of key.
+- **Melody characters** (STYLE K4): flow, arpeggio, riff, sequence, pedal, leaps, call and response, runs,
+  ostinato, hook, turns, octaves, echo — or AUTO, a different one per variation.
+- **Harmony.** 8 scales (major, minor, minor pentatonic, dorian, harmonic minor, major pentatonic, mixolydian,
+  phrygian), 24 progressions per scale family — some change chord at beat 3 — or AUTO. Chords are voiced close to
+  the previous one, without crossed voices.
+- **Modes.** MELODY, CHORDS, BOTH, BASS (a bass line with chromatic approach notes) and FULL (bass + chords +
+  melody).
+- **Browsing.** Turn **ALGORITHM** to step through 1000 variations of the current seed; turning back returns the
+  same phrase. **EDIT** picks a new seed. The variation number and all settings are kept by SAVE.
+
+For the widest variety: COMPOSE K4 → AUTO, STYLE K2 → MIXED, STYLE K4 → AUTO, then turn ALGORITHM.
+
+## Lights and screen
+
+- **Bright keys** are notes actually sounding (keyboard, chords, generator, arp or MIDI coming in on channel 1).
+  A key waiting for the next arp step glows dim. In *in scale* mode the scale glows dim.
+- **Buttons**: steady bright = active, dim = available, a short pulse = the page you are on. PLAY is green while
+  playing and red while recording.
+- **Screen**: page tabs, BPM, a beat indicator, MIDI in/out, the transport state (STOP / LOCAL / PLAY / WAIT /
+  ARMED) and an animated scene per page; COMPOSE shows the chord names of the phrase and a piano roll.
+
+## Safety and recovery
+
+- The bootloader, USB, OTA and flash code from fm1-base are **not modified**; NOCT is an application on top.
+- Flash is written only when you press SAVE. Unknown or invalid settings fall back to defaults.
+- Every release is built in CI with the device image checks (RAM, interrupt-safe code, register access) and
+  the site publishes only a build that passed them.
+- **If the FM-1 does not start:** hold OCT− and OCT+ for 5 seconds for update mode and restore the stock firmware
+  with the official M-UPGRADE from [M-VAVE](https://www.m-vave.com/product?id=fm-1). If even that is not reachable,
+  see [FM-1-transporter](https://github.com/kurogedelic/FM-1-transporter).
+
+The firmware is tested in a simulator that runs the real C code (including 200 random fuzz sessions per build)
+and against mocked DAW APIs. That does not replace a test on a real FM-1 with a DAW.
+
+## Development
 
 ```sh
-python tests/test_integrations.py
-sh build.sh --host --no-ble
-mkdir -p test-output
+sh build.sh --host --no-ble                     # simulator build (Linux; Windows: tools/build-host.ps1 -NoBle)
+for t in tests/test_*.py; do python3 "$t"; done  # scenario tests on the real C app
 firmware/app/build/host/noct-usb_host tests/noct.ctl test-output
-python tests/test_midi_engine.py
-python tests/test_chords_lights.py
-python tests/test_ui_workflows.py
-python tests/test_review_regressions.py
-python tests/test_usb_chords.py
-python tests/test_v08_features.py
-python tests/test_v081_generator.py
-python tests/test_v09_output.py
-python tests/test_fuzz.py
-python tests/test_prepare_site.py
 node tests/installer.test.mjs
-sh build.sh --no-ble --release 0.9.2
+python tools/emulator.py --port 8766            # interactive emulator at http://127.0.0.1:8766/
+sh build.sh --no-ble --release 0.9.2            # device image (needs the JieLi pi32v2 toolchain and AC79 SDK)
 ```
 
-CI проверяет 200 случайных сеансов на висящие ноты, 5 тестов 0.9 (раздельные каналы, ручка velocity/SENSED, подсветка лада), 11 тестов генератора 0.8.1 (ALGORITHM, характеры мелодии, AUTO-гармония, два аккорда в такте, окраски), 19 тестов функций 0.8 (лады, каденция, BASS/FULL, стили, свинг, human, отмена, IN KEY, раскладки, страм, MEMORY, tap tempo, ARP, сохранение и миграция 0.7 → 0.8), 12 тестов DAW-скриптов, 15 сценарных тестов музыкального движка, 9 проверок управления, 18 проверок аккордов/LED, 7 регрессий исправлений 0.7.1, 3 проверки USB/TRS (включая переполнение и OTA/SysEx), 2 проверки публикации пакетов и основной сценарий всех кнопок, 27 клавиш, 7 октав, CC, аккордов, совместного владения нотами, генератора, clock/BPM, Start/Stop/Continue, panic, сохранения и миграции. Сборка требует Linux x86-64, JieLi pi32v2 toolchain и AC79 SDK. Результат: `firmware/app/build/noct-usb-0.9.2.fwsc`. GitHub Pages публикует пакет и сайт из одной успешно проверенной сборки; неудачная сборка не заменяет установленную на сайте версию. Исходники сайта — `site/`.
+- Firmware: [`firmware/app`](firmware/app) — `composer.c` (generator), `midi_engine.c` (clock, arp),
+  `note_bus.c` (note ownership, chords, scales), `midi_ui.c` (controls), `afterglow.c` / `control_screen.c`
+  (screen), `project.c` (settings and migration).
+- Site and installer: [`site/`](site) (English and Russian). DAW scripts: [`integrations/`](integrations).
+- Improving the firmware: [`docs/IMPROVE_PROMPT.md`](docs/IMPROVE_PROMPT.md) — no-brick rules, an audit checklist
+  and a definition of done.
+- MIDI protocol on channel 16: CC7 master; CC20–23 knobs (CC24–27 in MIDI map); CC110/111/112 play/stop/record;
+  CC113 FX; CC114 + CC115 BPM×10 (14-bit, always as a pair); CC116/117 playing/recording feedback; CC119 value 2
+  preset handshake.
 
-На Windows для host нужны Python 3.11+, Pillow и Zig 0.13.0; `tools/build-host.ps1 -NoBle`. Host — симулятор, он не управляет реальным MIDI и не прошивает устройство.
+## Credits and licences
 
-## Основа и лицензии
+Built on [CTL-1](https://github.com/charlesvestal/fm1-ctl) by Charles Vestal, fm1-base and felucca-bsp (Felucca by
+Leo Kuroshita, Hügelton Instruments). The application and its changes are MPL-2.0 (`LICENSE`); see
+`upstream/LICENSING.md` and `upstream/LICENSES` for the base. Terminus font: SIL OFL. Sonivox EAS stays in the
+sources under Apache-2.0 but is not linked into the MIDI build.
 
-На основе [CTL-1](https://github.com/charlesvestal/fm1-ctl) `e181b4a1ac1510ce18ebf6e271a143c2fe364ccd`, fm1-base `b16c177a9086be955cd3e418383f2fd92c6d658b` и felucca-bsp `b4bb32ee0729595b7a30fbf239721286444eceb0`. Активное приложение: `app.c`, `project.c`, `note_bus.c`, `lighting.c`, `midi_engine.c`, `composer.c`, `midi_ui.c`, `midi_screen.c`, `control_screen.c`, `afterglow.c`, `midi_host.c`; старые UI/engine-файлы сохранены как исходный материал и не включены в сборку.
-
-MPL-2.0 для приложения и модификаций; авторские заголовки сохранены. Лицензии: `LICENSE`, `upstream/LICENSING.md`, `upstream/LICENSES`, `upstream/base/`. Terminus — SIL OFL. Sonivox EAS сохранён в исходниках под Apache-2.0, но не линкуется в MIDI-сборку. Проект независим от M-VAVE, Image-Line и Ableton; логотипы обозначают совместимые DAW. Development identity экспериментальная.
-
-Документация API: [Image-Line MIDI scripting](https://www.image-line.com/fl-studio-learning-content/fl-studio-online-manual/html/midi_scripting.htm), [Live Song: tempo и transport](https://docs.cycling74.com/apiref/lom/song/).
+NOCT is independent of M-VAVE, Image-Line and Ableton; their names identify compatible products.
