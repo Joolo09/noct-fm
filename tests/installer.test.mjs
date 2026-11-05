@@ -23,7 +23,28 @@ assert.equal(manifest.schema,1);assert.deepEqual(manifest.builds,[]);
 const html=readFileSync(new URL('../site/index.html',import.meta.url),'utf8');
 assert.match(html,/id="install" disabled/);
 assert.match(html,/id="ack" type="checkbox"/);
-assert.match(html,/installer\.js\?v=3/);
+assert.match(html,/installer\.js\?v=4/);
+assert.match(html,/id="read-log" class="secondary" disabled/);
+
+// Read-only Bluetooth diagnostics: log frames and the newest disconnect reason.
+const { logLine, lastDisconnect, readDeviceLog, LOG_REQUEST } = await import('../site/diag.js');
+assert.deepEqual(LOG_REQUEST,[0xF0,0x7D,0x4C,0x47,0xF7]);
+const frame=text=>Uint8Array.from([0xF0,0x7D,0x4C,0x47,...[...text].map(c=>c.charCodeAt(0)),0xF7]);
+assert.equal(logLine(frame('computer: disconnected 3d x14')),'computer: disconnected 3d x14');
+assert.equal(logLine(Uint8Array.from([0xF0,0x7D,0x4C,0x43,0x01,0xF7])),null);   // another command's frame
+assert.equal(logLine(Uint8Array.from([0x90,0x3C,0x64])),null);
+assert.equal(lastDisconnect(['BT ready: advertising as FM-1','computer: disconnected 3d x14','stacks 1 2 3']),0x3d);
+assert.equal(lastDisconnect(['computer: disconnected 8','computer: connected 1']),8);
+assert.equal(lastDisconnect(['BT ready: advertising as FM-1']),-1);
+{
+  const sent=[];let listener=null;
+  const input={addEventListener:(n,f)=>{listener=f;},removeEventListener:(n,f)=>{if(listener===f)listener=null;}};
+  const output={send:data=>{sent.push(data);listener({data:frame('no crash recorded')});listener({data:frame('computer: disconnected 13')});listener({data:Uint8Array.from([0xF8])});}};
+  const lines=await readDeviceLog(input,output,20);
+  assert.deepEqual(sent,[LOG_REQUEST]);                                 // exactly one read request, nothing else
+  assert.deepEqual(lines,['no crash recorded','computer: disconnected 13']);
+  assert.equal(listener,null);                                           // the listener is removed afterwards
+}
 
 // A long-lived tab must not verify today's download with yesterday's metadata.
 const base='https://example.test/noct-fm/';

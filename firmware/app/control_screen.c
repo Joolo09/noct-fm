@@ -53,6 +53,67 @@ static const char *ble_text(void)
     default:return "OFF";
     }
 }
+/* Bluetooth diagnosis from fm1-base's radio log ("computer: connected 1", "computer: disconnected 3d x4" - repeats
+ * fold into one line with a count). Returns the advice for the screen; *code is the last disconnect reason (HCI
+ * error code) or -1, *raw the newest connection line (or the newest line). */
+static int hex_token(const char *s,int *value)
+{
+    int v=0,n=0;
+    for(;*s && *s!=' ';s++,n++){
+        int c=*s,d=c>='0'&&c<='9'?c-'0':c>='a'&&c<='f'?c-'a'+10:c>='A'&&c<='F'?c-'A'+10:-1;
+        if(d<0 || n>=4)return 0;
+        v=v*16+d;
+    }
+    *value=v;return n>0;
+}
+static const char *ble_reason_text(int code)
+{
+    switch(code){
+    case 0x05:case 0x06:case 0x3D:return "OLD PAIRING: FORGET FM-1 ON PHONE";
+    case 0x13:return "THE PHONE CLOSED THE LINK";
+    case 0x16:return "FM-1 CLOSED THE LINK";
+    case 0x08:case 0x22:case 0x28:return "LINK TIMED OUT: MOVE CLOSER";
+    case 0x3E:return "LINK FAILED TO START: TRY AGAIN";
+    case 0x1A:case 0x3B:return "PHONE REFUSED THE LINK SETTINGS";
+    default:return 0;
+    }
+}
+static const char *ble_diagnosis(const char **raw,int *code)
+{
+    const char *newest=0,*event=0;
+    uint32_t total=plat_ble_log_total();
+    *code=-1;*raw="";
+    for(int back=0;back<8 && (uint32_t)back<total;back++){
+        const char *line=plat_ble_log_line(back),*p;
+        if(!line[0])continue;
+        if(!newest)newest=line;
+        for(p=line;*p && !(p[0]=='c'&&p[1]=='o'&&p[2]=='n'&&p[3]=='n');p++);   /* "connected" / "disconnected" */
+        if(*p || (line[0]=='d'&&line[1]=='i'&&line[2]=='s')){event=line;break;}
+    }
+    *raw=event?event:newest?newest:"";
+    if(!FM1B_BLE)return "USB-ONLY BUILD: NO BLUETOOTH";
+    if(proj.ble_off)return "BLUETOOTH IS OFF: TURN K1";
+    if(plat_ble_connected())return "MIDI ON USB AND BLUETOOTH";
+    if(plat_ble_state()==BLE_STARTING)return "STARTING BLUETOOTH...";
+    if(plat_ble_state()==BLE_FAILED)return "BLUETOOTH FAILED: TURN K1 OFF/ON";
+    if(plat_ble_linked())return "LINKED, MIDI CLOSED: OPEN FM-1 IN APP";
+    if(event){
+        const char *p=event,*t;
+        for(;*p && !(p[0]=='d'&&p[1]=='i'&&p[2]=='s'&&p[3]=='c');p++);
+        if(*p){
+            /* the first all-hex word after "disconnected" is the reason */
+            for(t=p;*t && *t!=' ';t++);
+            while(*t){
+                while(*t==' ')t++;
+                if(hex_token(t,code))break;
+                while(*t && *t!=' ')t++;
+            }
+            if(*code>=0 && ble_reason_text(*code))return ble_reason_text(*code);
+            return "DISCONNECTED: SEE THE LOG BELOW";
+        }
+    }
+    return "NOT LINKED: CONNECT FROM A MIDI APP";
+}
 /* Ring position 0..127 for a value inside lo..hi. */
 static int knob_level(int value,int lo,int hi){return hi>lo?clamp((value-lo)*127/(hi-lo),0,127):0;}
 static void knob_text(int page,int knob,char *label,char *value,int *level)

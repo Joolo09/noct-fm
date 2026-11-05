@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.4
+- Bluetooth diagnosis: the LINK page reads fm1-base's radio log and explains the newest disconnect (old pairing,
+  closed by the phone, timeout, failed start, ...) with the log line itself.
+- The installer site gains read-only *Bluetooth diagnostics*: it asks the FM-1 for its log over USB (the existing
+  F0 7D 4C 47 readout) and explains it in English or Russian. Nothing is written.
+- README: what to do when Bluetooth shows WAITING although the phone says it is connected.
+
 ## 0.9.3
 - Bluetooth LE MIDI alongside USB (fm1-base's radio, unchanged): notes, controls and clock on both; advertises as
   "FM-1"; on / off on the new LINK page, kept by SAVE. A USB-only image is still built as a fallback.
