@@ -38,7 +38,7 @@ jobs:
             run=$(gh run list --workflow firmware.yml --branch main --commit "$GITHUB_SHA" --status success --json databaseId --jq '.[0].databaseId // empty')
           fi
           test -n "$run" || { echo "Build firmware successfully for this commit before deploying." >&2; exit 1; }
-          gh run download "$run" --name noct-usb-alpha --dir downloaded
+          gh run download "$run" --name noct-firmware --dir downloaded
           file=$(find downloaded -name '*.fwsc' -print -quit)
           test -n "$file"
           python tools/prepare-site.py --firmware "$file" --output _site

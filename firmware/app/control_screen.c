@@ -40,6 +40,19 @@ static const char *run_label(void)
     }
     return ui.playing?"PLAY":generator.enabled?"PAUSE":"STOP";
 }
+/* Bluetooth as a short word for the LINK page and the header. */
+static const char *ble_text(void)
+{
+    if(!FM1B_BLE)return "USB BUILD";
+    if(proj.ble_off)return "OFF";
+    if(plat_ble_connected())return "CONNECTED";
+    switch(plat_ble_state()){
+    case BLE_STARTING:return "STARTING";
+    case BLE_READY:return plat_ble_linked()?"LINKING":"WAITING";
+    case BLE_FAILED:return "FAILED";
+    default:return "OFF";
+    }
+}
 /* Ring position 0..127 for a value inside lo..hi. */
 static int knob_level(int value,int lo,int hi){return hi>lo?clamp((value-lo)*127/(hi-lo),0,127):0;}
 static void knob_text(int page,int knob,char *label,char *value,int *level)
@@ -79,6 +92,12 @@ static void knob_text(int page,int knob,char *label,char *value,int *level)
         if(knob==1){put_s(value,ARP_NAME[proj.arp_mode]);*level=knob_level(proj.arp_mode,0,NARP-1);}
         if(knob==2){put_s(put_u(value,proj.arp_oct)," OCT");*level=knob_level(proj.arp_oct,1,3);}
         if(knob==3){put_s(put_u(value,proj.arp_gate),"%");*level=knob_level(proj.arp_gate,10,100);}
+    }else if(page==PAGE_LINK){
+        static const char *const names[4]={"BLUETOOTH","HOST","CLOCK OUT","KNOB CH"};put_s(label,names[knob]);
+        if(knob==0){put_s(value,ble_text());*level=proj.ble_off||!FM1B_BLE?0:127;}
+        if(knob==1){put_s(value,proj.host_mode?"APPS":"DAW");*level=proj.host_mode?127:0;}
+        if(knob==2){put_s(value,proj.clock_out?"SEND":"OFF");*level=proj.clock_out?127:0;}
+        if(knob==3){put_s(value,proj.knob_ch?"CH 1":"CH 16");*level=proj.knob_ch?127:0;}
     }else{
         static const char *const names[4]={"CLOCK","BPM","VELOCITY","GEN OUT"};put_s(label,names[knob]);
         if(knob==0){put_s(value,CLOCK_NAME[proj.clock]);*level=knob_level(proj.clock,0,NCLK-1);}

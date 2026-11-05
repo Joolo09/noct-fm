@@ -71,6 +71,11 @@ int app_expect(const char *what,int *got)
     else if(!strcmp(what,"color"))n=proj.gen_color;
     else if(!strcmp(what,"variation"))n=(int)GEN_VAR;
     else if(!strcmp(what,"gen_split"))n=proj.gen_split;
+    else if(!strcmp(what,"ble_off"))n=proj.ble_off;
+    else if(!strcmp(what,"ble_state"))n=plat_ble_state();
+    else if(!strcmp(what,"host_mode"))n=proj.host_mode;
+    else if(!strcmp(what,"clock_out"))n=proj.clock_out;
+    else if(!strcmp(what,"knob_ch"))n=proj.knob_ch;
     else if(!strcmp(what,"touch_on"))n=proj.touch;
     else if(!strcmp(what,"melody"))n=proj.gen_melody;
     else if(!strcmp(what,"character"))n=generator.plan[generator.active].character;

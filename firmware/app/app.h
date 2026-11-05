@@ -95,7 +95,9 @@ typedef struct {
     uint8_t gen_var_lo, gen_var_hi;      /* 0.8.1: ALGORITHM phrase variation 0..999 */
     uint8_t gen_melody;                  /* 0.8.1: melody character, 0 AUTO */
     uint8_t gen_split;                   /* 0.9: generator output: 0 all on channel 1, 1 melody 1 / chords 2 / bass 3 */
-    uint8_t rsv6[3];
+    uint8_t host_mode;                   /* 0.9.3: 0 DAW (scripts: transport as CC on channel 16), 1 APPS (MIDI Start/Stop) */
+    uint8_t clock_out;                   /* 0.9.3: 1 = send MIDI Clock from the internal tempo (incoming clock ignored) */
+    uint8_t knob_ch;                     /* 0.9.3: channel of the DAW-page knobs and MASTER: 0 = 16, 1 = 1 */
 } project_t;
 
 extern project_t proj;

@@ -76,7 +76,7 @@ static int project_valid(void)
     if (proj.format == 5u && (!proj.gen_seed || proj.gen_mode>2u || proj.gen_progression>3u)) return 0;
     if (proj.format == PROJ_FORMAT && (!proj.gen_seed || proj.gen_mode>=NGMODES || proj.gen_progression>NPROGS ||
         proj.rsv[2]>=NCHORDS || proj.rsv[4]>=NGSCALES || proj.gen_swing>=NSWING || proj.gen_style>=NSTYLES ||
-        proj.gen_color>=NCOLORS || proj.gen_split>1u || proj.gen_melody>=NMELODY || (proj.gen_var_lo|proj.gen_var_hi<<8)>=NVARS || proj.chord_voicing>=NVOICINGS || proj.chord_strum>=NSTRUMS || proj.key_scale>1u ||
+        proj.gen_color>=NCOLORS || proj.gen_split>1u || proj.host_mode>1u || proj.clock_out>1u || proj.knob_ch>1u || proj.gen_melody>=NMELODY || (proj.gen_var_lo|proj.gen_var_hi<<8)>=NVARS || proj.chord_voicing>=NVOICINGS || proj.chord_strum>=NSTRUMS || proj.key_scale>1u ||
         proj.arp_gate<10u || proj.arp_gate>100u || proj.custom_n<2u || proj.custom_n>5u)) return 0;
     if (proj.format == PROJ_FORMAT)
         for (k = 0; k < 5; k++) if (proj.custom[k] > 36u) return 0;
@@ -119,14 +119,16 @@ int project_load(void)
             /* 0.8 additions: the old sound stays identical (straight, held triads, close chords, no strum) */
             proj.gen_swing=proj.gen_style=proj.gen_color=proj.chord_voicing=proj.chord_strum=proj.key_scale=0;
             proj.arp_gate=50;proj.human=0;
-            memset(proj.custom,0,sizeof proj.custom);memset(proj.rsv6,0,sizeof proj.rsv6);
+            memset(proj.custom,0,sizeof proj.custom);
             proj.gen_var_lo=proj.gen_var_hi=proj.gen_melody=proj.gen_split=0;
+            proj.host_mode=proj.clock_out=proj.knob_ch=0;
             proj.custom_n=5;proj.custom[1]=4;proj.custom[2]=7;proj.custom[3]=11;proj.custom[4]=14;
         }
         proj.format = PROJ_FORMAT;
         proj.chan = proj.bank = proj.scale = proj.program = 0;
         proj.sound = SOUND_OFF; proj.in_mute = 1; proj.at_mode = AT_OFF;
         proj.rsv[0] = 2;
+        if(proj.ble_off>1u)proj.ble_off=0;   /* Bluetooth starts on unless the player switched it off */
         if(proj.rsv[3]>1u)proj.rsv[3]=0;
         /* Keyboard CHORDS is polyphonic and must not inherit a saved arp route. */
         /* The arpeggiator always starts off: only its rate, order, octaves, gate and latch are restored. */

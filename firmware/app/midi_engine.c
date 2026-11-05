@@ -16,8 +16,11 @@ static void engine_tempo(uint32_t value)
     proj.bpm10=(uint16_t)clamp((int32_t)value,200,9990);
     proj.tempo=(uint8_t)clamp((proj.bpm10+5)/10,40,240);
 }
+/* CLOCK OUT: the FM-1 is the tempo master (for apps such as Koala Sampler); it never follows an incoming clock then. */
 static int clock_external(void)
-{return proj.clock==CLK_EXT || (proj.clock==CLK_AUTO && arp_engine.have_clock && (arp_engine.remote_running || (!generator.preview && plat_ms()-arp_engine.last_clock<500u)));}
+{return !proj.clock_out && (proj.clock==CLK_EXT || (proj.clock==CLK_AUTO && arp_engine.have_clock && (arp_engine.remote_running || (!generator.preview && plat_ms()-arp_engine.last_clock<500u))));}
+/* One MIDI real-time byte (Clock, Start, Stop) to USB and Bluetooth. */
+static void realtime_send(uint32_t status){ctl_send(0xFu|status<<8,TO_USB|TO_BLE);}
 
 static void eng_send(uint32_t st, uint32_t a, uint32_t b)
 { ctl_send((st >> 4) | st << 8 | a << 16 | b << 24, TO_USB | TO_BLE); }
@@ -168,7 +171,11 @@ void engine_tick(void)
         return;
     }
     arp_engine.phase+=proj.bpm10*24u;
-    if(arp_engine.phase>=600000u){arp_engine.phase-=600000u;arp_clock();}
+    if(arp_engine.phase>=600000u){
+        arp_engine.phase-=600000u;
+        if(proj.clock_out)realtime_send(0xF8u);
+        arp_clock();
+    }
 }
 static void engine_transport(int on,int restart)
 {
@@ -207,6 +214,8 @@ static void engine_song_position(uint32_t position)
 void engine_midi_clock(uint32_t st)
 {
     uint32_t f=plat_lock();
+    /* The master ignores others' clock and Start/Continue, but always obeys Stop: stopping is always safe. */
+    if(proj.clock_out && st!=0xFCu){plat_unlock(f);return;}
     if(st==0xF8u && proj.clock!=CLK_INT){
         uint32_t now=plat_ms();
         if(!arp_engine.have_clock || now-arp_engine.last_clock>500u){arp_engine.clock_pulses=0;arp_engine.beat_start=now;}
