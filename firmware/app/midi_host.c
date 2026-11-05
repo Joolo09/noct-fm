@@ -73,6 +73,7 @@ int app_expect(const char *what,int *got)
     else if(!strcmp(what,"gen_split"))n=proj.gen_split;
     else if(!strcmp(what,"ble_off"))n=proj.ble_off;
     else if(!strcmp(what,"ble_state"))n=plat_ble_state();
+    else if(!strcmp(what,"ble_reason")){const char *raw;ble_diagnosis(&raw,&n);}
     else if(!strcmp(what,"host_mode"))n=proj.host_mode;
     else if(!strcmp(what,"clock_out"))n=proj.clock_out;
     else if(!strcmp(what,"knob_ch"))n=proj.knob_ch;

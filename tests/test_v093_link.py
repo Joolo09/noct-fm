@@ -27,6 +27,11 @@ class BluetoothTests(unittest.TestCase):
                   'tap SAVE','expect saves 1','reboot','wait 1500','expect ble_off 1','expect ble_state 0']+LINK+
                  ['spin K1 1','expect ble_off 0','wait 1100','expect ble_state 2'])
 
+    @unittest.skipUnless(BLE_BUILD,'USB-only build')
+    def test_link_page_explains_the_last_disconnect(self):
+        scenario(['wait 1500']+LINK+['expect ble_reason -1','ble connect','wait 100','expect ble_reason -1',
+                  'ble disconnect','wait 100','expect ble_reason 19','ble connect','wait 100','expect ble_reason -1'])
+
     def test_usb_keeps_working_with_bluetooth_off(self):
         output=scenario(['wait 800']+LINK+['spin K1 -1','tap HOME','out','key 7 down','key 7 up','out'])
         self.assertRegex(output,r'out 90 3C 64 -> USB')

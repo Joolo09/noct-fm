@@ -64,25 +64,25 @@ jobs:
           fi
       - name: Build the USB-only firmware and run image checks
         run: |
-          sh build.sh --no-ble --release 0.9.3
-          mkdir -p usb-only && cp firmware/app/build/noct-usb-0.9.3.fwsc usb-only/
+          sh build.sh --no-ble --release 0.9.4
+          mkdir -p usb-only && cp firmware/app/build/noct-usb-0.9.4.fwsc usb-only/
       - name: Build the USB + Bluetooth firmware and run image checks
-        run: sh build.sh --release 0.9.3
+        run: sh build.sh --release 0.9.4
       - uses: actions/upload-artifact@v4
         with:
           name: noct-firmware
           path: |
-            firmware/app/build/noct-0.9.3.fwsc
+            firmware/app/build/noct-0.9.4.fwsc
             firmware/app/build/noct.bin
             firmware/app/build/loader/ota.bin
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: noct-usb-only
-          path: usb-only/noct-usb-0.9.3.fwsc
+          path: usb-only/noct-usb-0.9.4.fwsc
           if-no-files-found: error
       - name: Prepare installer bundle
-        run: python tools/prepare-site.py --firmware firmware/app/build/noct-0.9.3.fwsc --output web-bundle
+        run: python tools/prepare-site.py --firmware firmware/app/build/noct-0.9.4.fwsc --output web-bundle
       - uses: actions/upload-artifact@v4
         with:
           name: noct-installer-site

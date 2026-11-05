@@ -91,6 +91,16 @@ Bluetooth MIDI device must be opened by a MIDI app. Use the app's own Bluetooth 
 connect once with a Bluetooth MIDI connector app, after which the FM-1 shows up in every MIDI app. In Koala
 Sampler, turn on its MIDI input for the FM-1 and, with CLOCK OUT on, its external MIDI clock sync.
 
+**If Bluetooth shows WAITING although the phone says it is connected:** the FM-1 has no link at all — the phone is
+holding an old pairing (often from the stock firmware, which also has Bluetooth MIDI) or a connection from the
+system settings. The LINK page explains the newest disconnect (e.g. *OLD PAIRING: FORGET FM-1 ON PHONE*) and shows
+the log line; the site can also read the log over USB (*Bluetooth diagnostics*, read-only). Usually this fixes it:
+
+1. On the phone: Bluetooth settings → FM-1 → **Forget / Unpair**.
+2. On the FM-1: LINK, turn K1 to OFF and back to ON (it advertises again).
+3. Connect **from the MIDI app** (or a Bluetooth MIDI connector app), not from the Bluetooth settings. The LINK page
+   should change to LINKING and then CONNECTED.
+
 Bluetooth MIDI has more latency than USB; for tight timing prefer USB. Android and Koala behaviour depends on the
 phone and app version and has not been tested on hardware by this project.
 
@@ -189,8 +199,8 @@ for t in tests/test_*.py; do python3 "$t"; done  # scenario tests on the real C 
 firmware/app/build/host/noct-usb_host tests/noct.ctl test-output
 node tests/installer.test.mjs
 python tools/emulator.py --port 8766            # interactive emulator at http://127.0.0.1:8766/
-sh build.sh --release 0.9.3                     # device image, USB + Bluetooth (JieLi pi32v2 toolchain, AC79 SDK)
-sh build.sh --no-ble --release 0.9.3            # USB-only image
+sh build.sh --release 0.9.4                     # device image, USB + Bluetooth (JieLi pi32v2 toolchain, AC79 SDK)
+sh build.sh --no-ble --release 0.9.4            # USB-only image
 ```
 
 - Firmware: [`firmware/app`](firmware/app) — `composer.c` (generator), `midi_engine.c` (clock, arp),

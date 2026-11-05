@@ -349,8 +349,16 @@ static void ag_scene(uint32_t now,int page,uint16_t accent)
         ag_panel(124,20,108,46,RGB(13,19,33),bt_conn?K_MINT:bt_on?accent:RGB(40,44,66));
         cv_text(132,24,&FONT_B,"BLUETOOTH",K_TEXT);cv_text(132,44,&FONT_XS,ble_text(),bt_conn?K_MINT:bt_on?accent:K_DIM);
         {int pulse=bt_on && !bt_conn && (now/400u)%2u;ag_disc(222,31,4,bt||bt_conn?K_MINT:pulse?accent:RGB(45,47,72));}
-        cv_text(9,72,&FONT_XS,proj.host_mode?"APPS: MIDI START/STOP":"DAW: FL STUDIO / LIVE SCRIPTS",K_TEXT);
-        cv_text(9,86,&FONT_XS,proj.clock_out?"CLOCK OUT: FM-1 IS THE MASTER":bt_conn?"MIDI ON USB AND BLUETOOTH":bt_on?"PAIR AS \"FM-1\" IN YOUR APP":"MIDI ON USB",proj.clock_out?K_MINT:K_DIM);
+        {
+            /* what the radio log says: advice, then the log line itself (to report a problem) */
+            const char *raw;int code;char line[40];
+            const char *hint=ble_diagnosis(&raw,&code);
+            int i=0;
+            for(;raw[i] && i<37;i++)line[i]=raw[i];
+            line[i]=0;
+            cv_text(9,72,&FONT_XS,hint,bt_conn?K_MINT:code>=0||plat_ble_state()==BLE_FAILED?K_HOT:K_TEXT);
+            cv_text(9,86,&FONT_XS,line[0]?line:proj.host_mode?"APPS: MIDI START/STOP":"DAW: FL STUDIO / LIVE SCRIPTS",K_DIM);
+        }
     }else{
         ag_clock(accent);cv_text(9,4,&FONT_XS,"CLOCK / ORBIT",accent);
         p=put_u(text,proj.bpm10/10u);put_u(put_s(p,"."),proj.bpm10%10u);

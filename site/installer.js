@@ -3,6 +3,7 @@ import { Updater } from './lib/fm1ota.js';
 import { verifyPackage } from './verify.js?v=3';
 import { readReleaseManifest, loadVerifiedRelease } from './releases.js?v=2';
 import { t, onLang } from './i18n.js?v=1';
+import { readDeviceLog, lastDisconnect } from './diag.js?v=1';
 const $ = id => document.getElementById(id);
 let midi, updater, connected, meta, image, writing = false, loading = false;
 const supported = isSecureContext && !!navigator.requestMIDIAccess;
@@ -30,6 +31,7 @@ function refresh() {
   $('file').disabled = !meta || writing || loading;
   $('ack').disabled = writing;
   $('install').disabled = !supported || !connected || !image || !$('ack').checked || writing || loading;
+  $('read-log').disabled = !supported || !midi || writing || loading;
 }
 function error(e) { $('error').textContent = e.message || String(e); log($('error').textContent); }
 const messages = Object.fromEntries(['denied','notfound','model','lost','stopped','noloader','noreturn','mismatch','open'].map(k => [k, `msg.${k}`]));
@@ -103,6 +105,24 @@ $('file').addEventListener('change',async e=>{
   finally{loading=false;refresh();}
 });
 $('ack').addEventListener('change',refresh);
+// Read-only: asks for fm1-base's log and explains the newest Bluetooth disconnect.
+const REASONS={0x05:'diag.oldpair',0x06:'diag.oldpair',0x3d:'diag.oldpair',0x13:'diag.phone',0x16:'diag.fm1',
+  0x08:'diag.timeout',0x22:'diag.timeout',0x28:'diag.timeout',0x3e:'diag.failed',0x1a:'diag.params',0x3b:'diag.params'};
+$('read-log').addEventListener('click',async()=>{
+  if(writing||loading||!midi)return;
+  loading=true;refresh();$('error').textContent='';
+  try{
+    const input=midi.inputs.get($('ports').value);
+    const output=input&&[...midi.outputs.values()].find(p=>p.name===input.name&&p.state!=='disconnected');
+    if(!input||!output)throw new Error(t('msg.nopair'));
+    const lines=await readDeviceLog(input,output);
+    $('device-log').textContent=lines.join('\n')||t('diag.empty');
+    const code=lastDisconnect(lines);
+    show('diag-hint',code<0?(lines.some(l=>/disconnected|connected/.test(l))?'diag.none':'diag.nolink'):(REASONS[code]||'diag.other'),{code:code.toString(16)});
+    log(`Device log: ${lines.length} lines`);
+  }catch(e){error(e);}
+  finally{loading=false;refresh();}
+});
 function step(k,n){
   if(k!=='write'&&k!=='verify')log(`${k} ${n??''}`);
   if(k==='start')status('st.checkinstalled',1);

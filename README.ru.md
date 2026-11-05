@@ -92,6 +92,16 @@ controller*, в Live — *MIDI Map*).
 если нет — один раз подключись через приложение-коннектор Bluetooth MIDI, после чего FM-1 появится во всех
 MIDI-приложениях. В Koala Sampler включи MIDI-вход от FM-1, а при CLOCK OUT — синхронизацию по внешнему MIDI clock.
 
+**Если Bluetooth показывает WAITING, хотя телефон пишет «подключено»:** у FM-1 вообще нет соединения — телефон держит
+старое сопряжение (часто ещё с заводской прошивки, у которой тоже есть Bluetooth MIDI) или подключение из системных
+настроек. Страница LINK расшифровывает последний разрыв (например, *OLD PAIRING: FORGET FM-1 ON PHONE*) и показывает
+строку лога; сайт тоже может прочитать лог по USB (*Диагностика Bluetooth*, только чтение). Обычно помогает:
+
+1. На телефоне: настройки Bluetooth → FM-1 → **Забыть / Отменить сопряжение**.
+2. На FM-1: LINK, поверни K1 в OFF и обратно в ON (FM-1 снова станет видна).
+3. Подключайся **из MIDI-приложения** (или приложения-коннектора Bluetooth MIDI), а не из настроек Bluetooth.
+   На странице LINK должно появиться LINKING, затем CONNECTED.
+
 У Bluetooth MIDI задержка больше, чем у USB; для точного тайминга лучше USB. Поведение Android и Koala зависит от
 телефона и версии приложения и на реальном железе в этом проекте не проверялось.
 
@@ -190,8 +200,8 @@ for t in tests/test_*.py; do python3 "$t"; done  # сценарные тесты
 firmware/app/build/host/noct-usb_host tests/noct.ctl test-output
 node tests/installer.test.mjs
 python tools/emulator.py --port 8766            # интерактивный эмулятор: http://127.0.0.1:8766/
-sh build.sh --release 0.9.3                     # образ устройства, USB + Bluetooth (JieLi pi32v2 toolchain, AC79 SDK)
-sh build.sh --no-ble --release 0.9.3            # образ только с USB
+sh build.sh --release 0.9.4                     # образ устройства, USB + Bluetooth (JieLi pi32v2 toolchain, AC79 SDK)
+sh build.sh --no-ble --release 0.9.4            # образ только с USB
 ```
 
 - Прошивка: [`firmware/app`](firmware/app) — `composer.c` (генератор), `midi_engine.c` (clock, арпеджиатор),
