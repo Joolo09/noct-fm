@@ -3,7 +3,7 @@
  * Two 240px strips; no full-screen buffer, assets or allocation in the timer.
  */
 static const int8_t AG_SIN[64]={0,12,25,37,49,60,71,81,90,98,106,112,117,122,125,126,127,126,125,122,117,112,106,98,90,81,71,60,49,37,25,12,0,-12,-25,-37,-49,-60,-71,-81,-90,-98,-106,-112,-117,-122,-125,-126,-127,-126,-125,-122,-117,-112,-106,-98,-90,-81,-71,-60,-49,-37,-25,-12};
-static const uint16_t AG_ACCENT[PAGE_COUNT]={RGB(118,241,212),RGB(255,161,205),RGB(190,160,255),RGB(255,190,121),RGB(255,140,128),RGB(116,211,255),RGB(122,238,221)};
+static const uint16_t AG_ACCENT[PAGE_COUNT]={RGB(118,241,212),RGB(255,161,205),RGB(190,160,255),RGB(255,190,121),RGB(255,140,128),RGB(116,211,255),RGB(122,238,221),RGB(120,170,255)};
 static struct {
     uint32_t serial,page_at,last;
     uint8_t page,pulse,energy[12];
@@ -338,6 +338,19 @@ static void ag_scene(uint32_t now,int page,uint16_t accent)
         p=put_s(text,proj.arp_latch?"LATCH ON":"LATCH OFF");
         if(proj.gen_swing && (proj.arp_rate==RATE_8 || proj.arp_rate==RATE_16)){p=put_s(p,"  SWING ");put_s(p,SWING_NAME[proj.gen_swing]);}
         cv_text(9,72,&FONT_XS,text,K_DIM);
+    }else if(page==PAGE_LINK){
+        /* USB and Bluetooth side by side, and what the FM-1 sends for the chosen host */
+        int usb=lit(PORT_USB,0)||lit(PORT_USB,1),bt=FM1B_BLE && (lit(PORT_BLE,0)||lit(PORT_BLE,1));
+        int bt_on=FM1B_BLE && !proj.ble_off,bt_conn=bt_on && plat_ble_connected();
+        cv_text(9,4,&FONT_XS,"LINK  /  USB + BLUETOOTH",accent);
+        ag_panel(8,20,108,46,RGB(13,19,33),usb?K_MINT:ag_mix(RGB(40,44,66),accent,60));
+        cv_text(16,24,&FONT_B,"USB",K_TEXT);cv_text(16,44,&FONT_XS,"MIDI IN / OUT",usb?K_MINT:K_DIM);
+        ag_disc(104,31,4,usb?K_MINT:RGB(45,47,72));
+        ag_panel(124,20,108,46,RGB(13,19,33),bt_conn?K_MINT:bt_on?accent:RGB(40,44,66));
+        cv_text(132,24,&FONT_B,"BLUETOOTH",K_TEXT);cv_text(132,44,&FONT_XS,ble_text(),bt_conn?K_MINT:bt_on?accent:K_DIM);
+        {int pulse=bt_on && !bt_conn && (now/400u)%2u;ag_disc(222,31,4,bt||bt_conn?K_MINT:pulse?accent:RGB(45,47,72));}
+        cv_text(9,72,&FONT_XS,proj.host_mode?"APPS: MIDI START/STOP":"DAW: FL STUDIO / LIVE SCRIPTS",K_TEXT);
+        cv_text(9,86,&FONT_XS,proj.clock_out?"CLOCK OUT: FM-1 IS THE MASTER":bt_conn?"MIDI ON USB AND BLUETOOTH":bt_on?"PAIR AS \"FM-1\" IN YOUR APP":"MIDI ON USB",proj.clock_out?K_MINT:K_DIM);
     }else{
         ag_clock(accent);cv_text(9,4,&FONT_XS,"CLOCK / ORBIT",accent);
         p=put_u(text,proj.bpm10/10u);put_u(put_s(p,"."),proj.bpm10%10u);
@@ -358,10 +371,15 @@ static void noct_draw(void)
     cv_begin(240,144,RGB(9,11,23));
     /* Header: name, USB activity, BPM, the beat, unsaved changes, recording and the transport. */
     cv_text(8,1,&FONT_B,"NOCT",K_TEXT);cv_text(53,3,&FONT_XS,"FM",accent);
-    cv_rect(75,4,3,3,lit(PORT_USB,1)?K_MINT:RGB(45,47,72));
-    cv_rect(75,10,3,3,lit(PORT_USB,0)?K_HOT:RGB(45,47,72));
+    cv_rect(75,4,3,3,lit(PORT_USB,1)||(FM1B_BLE&&lit(PORT_BLE,1))?K_MINT:RGB(45,47,72));
+    cv_rect(75,10,3,3,lit(PORT_USB,0)||(FM1B_BLE&&lit(PORT_BLE,0))?K_HOT:RGB(45,47,72));
+    if(FM1B_BLE && !proj.ble_off){
+        /* Bluetooth: steady when a device is connected, blinking while it waits to be paired */
+        int conn=plat_ble_connected();
+        if(conn || (now/500u)%2u)cv_text(80,3,&FONT_XS,"B",conn?K_MINT:RGB(90,110,170));
+    }
     p=put_u(text,proj.bpm10/10u);if(proj.bpm10%10u)put_u(put_s(p,"."),proj.bpm10%10u);
-    cv_text(86,3,&FONT_XS,text,K_DIM);
+    cv_text(90,3,&FONT_XS,text,K_DIM);
     {
         int moving=ui.playing || generator.running || (proj.arp_on && arp_engine.count);
         unsigned beat=(arp_engine.ticks/24u)%4u,phase=arp_engine.ticks%24u;
@@ -376,7 +394,7 @@ static void noct_draw(void)
     const char *status=run_label();ag_panel(181,1,51,16,ag_mix(RGB(17,21,35),accent,35),ag_mix(RGB(30,34,55),accent,120));
     noct_center(206,2,&FONT_XS,status,accent);if(noct_recording)ag_disc(174,8,2,K_HOT);
     static const char *const tabs[5]={"DAW","CHRD","GEN","ARP","SYNC"};
-    int selected=page==PAGE_DAW?0:page==PAGE_CHORD?1:page==PAGE_ARP?3:page==PAGE_SYNC?4:2;
+    int selected=page==PAGE_DAW?0:page==PAGE_CHORD?1:page==PAGE_ARP?3:page==PAGE_SYNC||page==PAGE_LINK?4:2;
     for(int i=0;i<5;i++){
         int x=8+i*45;
         ag_panel(x,20,43,16,i==selected?ag_mix(RGB(16,20,36),accent,34):RGB(12,14,28),i==selected?accent:RGB(26,28,48));
@@ -387,6 +405,7 @@ static void noct_draw(void)
             cv_rect(x+36,26,3,3,generator.running?K_MINT:generator.enabled?K_HOT:RGB(45,47,72));
             if(i==selected)for(int d=0;d<3;d++)cv_rect(x+15+d*5,33,3,1,page==PAGE_GEN+d?K_TEXT:ag_mix(RGB(25,21,45),accent,90));
         }
+        if(i==4 && i==selected)for(int d=0;d<2;d++)cv_rect(x+18+d*5,33,3,1,page==PAGE_SYNC+d?K_TEXT:ag_mix(RGB(25,21,45),accent,90));
         if(i==selected)cv_rect(x+10,37,23,1,ag_mix(RGB(25,21,45),accent,120));
     }
     cv_band(38,106);ag_scene(now,page,accent);cv_blit(0,0);plat_yield();
@@ -412,7 +431,8 @@ static void noct_draw(void)
         else if(page==PAGE_GEN)put_s(text,"ALGO: PHRASES  EDIT: NEW SEED");
         else if(page==PAGE_FEEL)put_s(text,"SEQ: RUN/STOP  SEQ+EDIT: UNDO");
         else if(page==PAGE_STYLE)put_s(text,"PRESET: PAGES  SEQ: RUN/STOP");
-        else if(page==PAGE_SYNC)put_s(text,"GLO: TAP TEMPO  HOME: DAW");
+        else if(page==PAGE_SYNC)put_s(text,"GLO: TAP TEMPO  PRESET: LINK");
+        else if(page==PAGE_LINK)put_s(text,"K1: BLUETOOTH  K2: DAW / APPS");
         else if(page==PAGE_DAW)put_s(text,KNOB_MAP?"MIDI MAP / HOLD HOME: MIXER":"MIXER / HOLD HOME: MIDI MAP");
         else put_s(text,"PRESET: PAGES  HOME: DAW");
         cv_rect(8,79,224,1,RGB(43,35,65));

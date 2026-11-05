@@ -35,6 +35,17 @@ jobs:
           python tests/test_v081_generator.py
           python tests/test_v09_output.py
           python tests/test_fuzz.py
+          python tests/test_v093_link.py
+      - name: Repeat the C application tests on the Bluetooth build
+        run: |
+          sh build.sh --host
+          export NOCT_HOST="$PWD/firmware/app/build/host/noct_host"
+          "$NOCT_HOST" tests/noct.ctl test-output
+          for t in tests/test_midi_engine.py tests/test_ui_workflows.py tests/test_review_regressions.py \
+                   tests/test_chords_lights.py tests/test_usb_chords.py tests/test_v08_features.py \
+                   tests/test_v081_generator.py tests/test_v09_output.py tests/test_fuzz.py tests/test_v093_link.py; do
+            python "$t"
+          done
       - uses: actions/cache@v4
         id: toolchain
         with:
@@ -51,18 +62,27 @@ jobs:
             git clone --depth 1 --branch AC79NN_SDK_V1.2.1_2023-12-13 https://github.com/Jieli-Tech/fw-AC79_AIoT_SDK.git "$HOME/fw-AC79-mirror"
             echo "AC79_SDK=$HOME/fw-AC79-mirror" >> "$GITHUB_ENV"
           fi
-      - name: Build USB firmware and run image checks
-        run: sh build.sh --no-ble --release 0.9.2
+      - name: Build the USB-only firmware and run image checks
+        run: |
+          sh build.sh --no-ble --release 0.9.3
+          mkdir -p usb-only && cp firmware/app/build/noct-usb-0.9.3.fwsc usb-only/
+      - name: Build the USB + Bluetooth firmware and run image checks
+        run: sh build.sh --release 0.9.3
       - uses: actions/upload-artifact@v4
         with:
-          name: noct-usb-alpha
+          name: noct-firmware
           path: |
-            firmware/app/build/noct-usb-0.9.2.fwsc
+            firmware/app/build/noct-0.9.3.fwsc
             firmware/app/build/noct.bin
             firmware/app/build/loader/ota.bin
           if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: noct-usb-only
+          path: usb-only/noct-usb-0.9.3.fwsc
+          if-no-files-found: error
       - name: Prepare installer bundle
-        run: python tools/prepare-site.py --firmware firmware/app/build/noct-usb-0.9.2.fwsc --output web-bundle
+        run: python tools/prepare-site.py --firmware firmware/app/build/noct-0.9.3.fwsc --output web-bundle
       - uses: actions/upload-artifact@v4
         with:
           name: noct-installer-site

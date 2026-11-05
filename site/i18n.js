@@ -4,7 +4,7 @@
 const ru = {
   'title':'NOCT FM — MIDI-прошивка для M-VAVE FM-1',
   'nav.how':'Как работает','nav.pages':'Страницы','nav.buttons':'Кнопки','nav.install':'Установка',
-  'hero.title':'MIDI-контроллер для FL&nbsp;Studio и Ableton&nbsp;Live',
+  'hero.title':'MIDI-контроллер для FL&nbsp;Studio, Ableton&nbsp;Live и мобильных приложений',
   'hero.lead':'Прошивка превращает FM-1 в контроллер для DAW: клавиатура, аккорды, генератор мелодий, арпеджиатор, ручки микшера и транспорт. Встроенный синтезатор отключён — весь звук делает DAW.',
   'cta.install':'Установить','cta.scripts':'Скрипты для DAW',
   'fact.keys':'клавиш, F3–G5, ±3 октавы','fact.pages':'страниц по 4 ручки','fact.chords':'типов аккордов','fact.scales':'ладов в генераторе','fact.phrases':'фраз на одно зерно — крутилка ALGORITHM',
@@ -31,7 +31,7 @@ const ru = {
   'p.sync3':'Velocity 1–127; ниже 1 — SENSED (по силе нажатия)','daw.splitt':'Три инструмента из генератора','daw.split':'На SYNC поставь K4 в SPLIT: мелодия идёт на канале 1, аккорды — на 2, бас — на 3. В FL Studio задай трём каналам MIDI-вход 1, 2 и 3 (Channel settings → MIDI). В Live создай три MIDI-дорожки со входом NOCT FM-1 и каналами Ch. 1, Ch. 2 и Ch. 3. Клавиатура всегда играет на канале 1.',
   'p.sync':'Темп и выход. На этой странице GLO — tap tempo, новый BPM сразу уходит в DAW.','p.sync4':'Выход генератора: всё на канале 1 или SPLIT',
   'buttons.title':'Кнопки',
-  'b.home':'Ручки → DAW. Удержание: MIXER / MIDI MAP','b.preset':'Листать страницы','b.algo':'Листать фразы #000–999','b.sel':'Аккорды вкл/выкл',
+  'b.home':'Ручки → DAW. Удержание: MIXER / MIDI MAP','b.preset':'Листать страницы','fact.ports':'MIDI по кабелю и Bluetooth одновременно','p.link':'USB и Bluetooth MIDI одновременно. Режим APPS и выход clock позволяют FM-1 управлять приложениями вроде Koala Sampler.','p.link1':'Bluetooth вкл / выкл','p.link2':'Хост: скрипты DAW / приложения (Start, Stop)','p.link3':'Отправлять MIDI Clock','p.link4':'Канал ручек 16 / 1','daw.appst':'Android, Koala Sampler и другие приложения','daw.apps':'На FM-1 открой LINK (PRESET после SYNC): HOST → APPS, CLOCK OUT → SEND, KNOB CH → CH 1, если приложение назначает контроллеры на этом канале. <b>USB:</b> подключи через переходник USB-C / OTG и включи FM-1 в MIDI-настройках приложения. <b>Bluetooth:</b> не сопрягай в настройках Bluetooth Android — открой FM-1 через поиск Bluetooth MIDI в приложении или один раз через приложение-коннектор Bluetooth MIDI; устройство называется «FM-1». В Koala включи MIDI-вход от FM-1 и синхронизацию по внешнему clock. У USB задержка меньше, чем у Bluetooth.','b.algo':'Листать фразы #000–999','b.sel':'Аккорды вкл/выкл',
   'b.keys':'клавиши','b.learn':'Запомнить аккорд','b.seq':'Генератор: пуск / стоп','b.key':'клавиша','b.root':'Тоника генератора',
   'b.edit':'Новое зерно: 1000 новых фраз','b.hold':'0,6 с','b.edithold':'Новая мелодия и аккорды','b.undo':'Отменить, до 8 шагов',
   'b.arp':'Арпеджиатор вкл/выкл','b.glo':'SYNC; на SYNC — tap tempo','b.transport':'Транспорт DAW','b.fx':'Эффекты трека в DAW',

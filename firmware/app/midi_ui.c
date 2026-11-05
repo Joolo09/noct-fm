@@ -3,8 +3,8 @@
  * Uses CTL-1/fm1-base's key sensing and pixel renderer under MPL-2.0.
  */
 #define K_BG RGB(10,14,25)
-enum { PAGE_DAW, PAGE_CHORD, PAGE_GEN, PAGE_FEEL, PAGE_STYLE, PAGE_ARP, PAGE_SYNC, PAGE_COUNT };
-static const char *const PAGE_NAME[PAGE_COUNT]={"DAW","CHORDS","COMPOSE","RHYTHM","STYLE","ARP","SYNC"};
+enum { PAGE_DAW, PAGE_CHORD, PAGE_GEN, PAGE_FEEL, PAGE_STYLE, PAGE_ARP, PAGE_SYNC, PAGE_LINK, PAGE_COUNT };
+static const char *const PAGE_NAME[PAGE_COUNT]={"DAW","CHORDS","COMPOSE","RHYTHM","STYLE","ARP","SYNC","LINK"};
 #define K_PANEL RGB(19,25,43)
 #define K_LINE RGB(39,48,70)
 #define K_DIM RGB(135,150,177)
@@ -46,6 +46,15 @@ static char *put_u(char *b,uint32_t n){char t[12];int k=0;do{t[k++]=(char)('0'+n
 static uint32_t pkt3(uint32_t st,uint32_t a,uint32_t b){return(st>>4)|st<<8|a<<16|b<<24;}
 static void play(uint32_t st,uint32_t a,uint32_t b){ctl_send(pkt3(st|proj.chan,a,b),TO_USB|TO_BLE);}
 static void noct_control(uint32_t a,uint32_t b){ctl_send(pkt3(0xBFu,a,b),TO_USB|TO_BLE);}
+/* The DAW-page knobs and MASTER: channel 16 for the DAW scripts, or channel 1 for apps that listen on one channel. */
+static void knob_control(uint32_t a,uint32_t b){ctl_send(pkt3(proj.knob_ch?0xB0u:0xBFu,a,b),TO_USB|TO_BLE);}
+/* PLAY: DAW mode asks the script (CC110/111 on channel 16); APPS mode sends MIDI Start / Stop, which apps such as
+ * Koala Sampler follow, and starts the local transport from the top. */
+static void transport_out(int on)
+{
+    if(proj.host_mode){realtime_send(on?0xFAu:0xFCu);engine_transport(on,on);}
+    else{engine_play(on);noct_control(on?110:111,127);}
+}
 static void say(const char *a,const char *b)
 {
     uint32_t n=0;
@@ -184,6 +193,7 @@ static void midi_in(void)
         if(port==PORT_TRS)ctl_send(pkt&~0xF0u,TO_USB|TO_BLE);
         /* No USB/BLE feedback echo and no synth queue in this MIDI-only app. */
         if(st>=0xF8u){
+            if(proj.clock_out && st!=0xFCu)continue;   /* the master obeys only Stop from others */
             engine_midi_clock(st);
             if(st==0xFAu || st==0xFBu)ui.playing=1;
             if(st==0xFCu){ui.playing=0;heard_clear();if(ui.sustain)sustain_set(0);}
@@ -293,7 +303,8 @@ static void button_down(int b)
     case B_PLAY:
         if(ui.btn>>B_GLO&1u){
             ui.glo_used=1;cycle_clock();
-        }else{ui.playing=(uint8_t)(!(ui.playing || (generator.preview && generator.running)));engine_play(ui.playing);noct_control(ui.playing?110:111,127);if(!ui.playing){heard_clear();if(ui.sustain)sustain_set(0);}}
+        }else{/* APPS: PLAY is always the shared transport (a local preview restarts in time with the app) */
+            ui.playing=(uint8_t)(proj.host_mode?!ui.playing:!(ui.playing || (generator.preview && generator.running)));transport_out(ui.playing);if(!ui.playing){heard_clear();if(ui.sustain)sustain_set(0);}}
         break;
     case B_REC:
         if(ui.btn>>B_FX&1u){ui.fx_used=1;panic();}
@@ -401,6 +412,22 @@ static void page_knob(int page,int i,int delta)
             if(split!=proj.gen_split){plat_unlock(f);{uint32_t g=plat_lock();generator_chord_off();generator_bass_off();plat_unlock(g);}ui.dirty=1;ui.msg_until=0;return;}
         }
     }
+    else if(page==PAGE_LINK){
+        if(i==0){
+            /* BLUETOOTH: on starts the radio and advertises as "FM-1"; off ends every link */
+            int off=proj.ble_off;
+            proj.ble_off=(uint8_t)clamp(proj.ble_off-delta,0,1);
+            if(off!=proj.ble_off){plat_unlock(f);plat_ble_enable(!proj.ble_off);ui.dirty=1;ui.msg_until=0;return;}
+        }
+        if(i==1)proj.host_mode=(uint8_t)clamp(proj.host_mode+delta,0,1);
+        if(i==2){
+            int was=proj.clock_out;
+            proj.clock_out=(uint8_t)clamp(proj.clock_out+delta,0,1);
+            /* becoming the master: forget a followed clock so the internal tempo takes over at once */
+            if(proj.clock_out && !was){arp_engine.have_clock=0;arp_engine.phase=0;}
+        }
+        if(i==3)proj.knob_ch=(uint8_t)clamp(proj.knob_ch+delta,0,1);
+    }
     plat_unlock(f);
     if(voice)chord_enable(1);
     else if(revoice_keys && (page==PAGE_CHORD || proj.key_scale || (CHORD_ON && CHORD_TYPE>=CH_KEY && CHORD_TYPE<=CH_KEY7)))revoice(0,0);
@@ -432,7 +459,7 @@ static void input(void)
         if(ui.page!=PAGE_DAW)page_knob(ui.page,i,e);
         else{
             int mode=KNOB_MAP?1:0,value=clamp(proj.val[mode][i]+e,0,127);
-            if(value!=proj.val[mode][i]){proj.val[mode][i]=(uint8_t)value;noct_control((mode?24u:20u)+(uint32_t)i,(uint32_t)value);}
+            if(value!=proj.val[mode][i]){proj.val[mode][i]=(uint8_t)value;knob_control((mode?24u:20u)+(uint32_t)i,(uint32_t)value);}
         }
         ui.touched=(int8_t)i;ui.touch_until=plat_ms()+600u;
     }
@@ -450,7 +477,7 @@ static void input(void)
     ui.master_raw+=((int32_t)plat_master()-ui.master_raw)/4;
     i=clamp(ui.master_raw*127/4000,0,127);
     if(i!=ui.master_sent && (i-ui.master_sent>1||ui.master_sent-i>1||i==0||i==127)){
-        ui.master_sent=(int16_t)i;noct_control(7,(uint32_t)i);
+        ui.master_sent=(int16_t)i;knob_control(7,(uint32_t)i);
     }
     save_if_idle();
 }

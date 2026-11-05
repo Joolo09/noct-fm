@@ -8,7 +8,9 @@ from PIL import Image, ImageDraw, ImageFont
 root=Path(__file__).resolve().parents[1]
 output=root/'test-output/afterglow'
 output.mkdir(parents=True,exist_ok=True)
-host=root/('firmware/app/build/host/noct-usb_host.exe' if os.name=='nt' else 'firmware/app/build/host/noct-usb_host')
+build=root/'firmware/app/build/host'
+host=build/('noct_host.exe' if os.name=='nt' else 'noct_host')   # the Bluetooth build shows the LINK page as on the device
+if not host.exists():host=build/('noct-usb_host.exe' if os.name=='nt' else 'noct-usb_host')
 commands=['wait 1400','splash','shot splash.png','wait 300']
 frames=[]
 def capture(page,extra=None):
@@ -28,7 +30,8 @@ commands.extend(['tap SEQ','tap ARP','key 7 down','key 11 down','key 14 down'])
 capture('arp',{12:['spin K2 2']})
 commands.extend(['key 7 up','key 11 up','key 14 up','tap ARP','tap GLO','simclock 1','midi USB FA 00 00'])
 capture('sync',{10:['simclock 0','wait 650'],18:['simclock 1']})
-commands.extend(['midi USB FC 00 00','simclock 0','expect active 0'])
+commands.extend(['midi USB FC 00 00','simclock 0','expect active 0','spin PRESET 1','ble connect'])
+capture('link',{6:['midi BLE 90 3C 64'],10:['midi BLE 80 3C 00']})
 script=output/'animation.ctl';script.write_text('\n'.join(commands)+'\n',encoding='utf8')
 subprocess.run([str(host),str(script),str(output)],check=True)
 images=[Image.open(output/name).convert('RGB') for name in frames]
@@ -39,7 +42,7 @@ large[0].save(preview/'afterglow.gif',save_all=True,append_images=large[1:],dura
 sheet=Image.new('RGB',(1080,654),(9,11,23));draw=ImageDraw.Draw(sheet)
 font=ImageFont.load_default(size=16)
 draw.text((24,18),'NOCT 0.8 / AFTERGLOW / REAL C FRAMES',font=font,fill=(190,160,255))
-for i,page in enumerate(['daw','chords','compose','rhythm','style','arp','sync']):
+for i,page in enumerate(['daw','chords','compose','rhythm','style','arp','sync','link']):
     x=24+(i%4)*264;y=68+(i//4)*288
     sheet.paste(Image.open(output/f'{page}-08.png').convert('RGB'),(x,y))
     draw.text((x,y+247),page.upper(),font=font,fill=(183,190,219))
