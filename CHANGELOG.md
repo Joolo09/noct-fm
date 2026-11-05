@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.3
+- Bluetooth LE MIDI alongside USB (fm1-base's radio, unchanged): notes, controls and clock on both; advertises as
+  "FM-1"; on / off on the new LINK page, kept by SAVE. A USB-only image is still built as a fallback.
+- APPS host mode for apps such as Koala Sampler: PLAY sends MIDI Start / Stop.
+- CLOCK OUT: the FM-1 sends MIDI Clock from its tempo; as master it ignores incoming clock and Start but always
+  obeys Stop.
+- Knob channel 16 or 1. Header shows Bluetooth (blinking while waiting, steady when connected).
+- Tests run on both builds; `docs/HARDWARE_FACTS.md` lists the platform facts with sources.
+
 ## 0.9.2
 - `docs/IMPROVE_PROMPT.md`: a reusable improvement brief (no-brick rules, audit checklist, definition of done).
 - Fuzzing: 2000 random sessions left no note sounding; 200 now run in CI (`tests/test_fuzz.py`).

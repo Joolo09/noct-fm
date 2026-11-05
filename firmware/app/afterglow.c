@@ -350,7 +350,7 @@ static void ag_scene(uint32_t now,int page,uint16_t accent)
         cv_text(132,24,&FONT_B,"BLUETOOTH",K_TEXT);cv_text(132,44,&FONT_XS,ble_text(),bt_conn?K_MINT:bt_on?accent:K_DIM);
         {int pulse=bt_on && !bt_conn && (now/400u)%2u;ag_disc(222,31,4,bt||bt_conn?K_MINT:pulse?accent:RGB(45,47,72));}
         cv_text(9,72,&FONT_XS,proj.host_mode?"APPS: MIDI START/STOP":"DAW: FL STUDIO / LIVE SCRIPTS",K_TEXT);
-        cv_text(9,86,&FONT_XS,proj.clock_out?"CLOCK OUT: FM-1 IS THE MASTER":bt_on?"PAIR AS \"FM-1\" IN YOUR APP":"KNOBS + NOTES ON EVERY PORT",proj.clock_out?K_MINT:K_DIM);
+        cv_text(9,86,&FONT_XS,proj.clock_out?"CLOCK OUT: FM-1 IS THE MASTER":bt_conn?"MIDI ON USB AND BLUETOOTH":bt_on?"PAIR AS \"FM-1\" IN YOUR APP":"MIDI ON USB",proj.clock_out?K_MINT:K_DIM);
     }else{
         ag_clock(accent);cv_text(9,4,&FONT_XS,"CLOCK / ORBIT",accent);
         p=put_u(text,proj.bpm10/10u);put_u(put_s(p,"."),proj.bpm10%10u);

@@ -1,6 +1,6 @@
 # NOCT FM
 
-**MIDI controller firmware for the M-VAVE FM-1, made for FL Studio and Ableton Live.**
+**MIDI controller firmware for the M-VAVE FM-1, made for FL Studio, Ableton Live and mobile apps — over USB and Bluetooth.**
 
 Keys, one-finger chords, a phrase generator, an arpeggiator, mixer knobs and DAW transport — on one fixed MIDI
 preset. The FM-1's built-in synth is switched off: your DAW makes the sound.
@@ -18,6 +18,7 @@ preset. The FM-1's built-in synth is switched off: your DAW makes the sound.
 - [What it does](#what-it-does)
 - [Install](#install)
 - [Connect your DAW](#connect-your-daw)
+- [Bluetooth and apps (Android, Koala Sampler)](#bluetooth-and-apps-android-koala-sampler)
 - [Controls](#controls)
 - [The generator](#the-generator)
 - [Lights and screen](#lights-and-screen)
@@ -34,7 +35,7 @@ preset. The FM-1's built-in synth is switched off: your DAW makes the sound.
 | **Generator** | 4-bar phrases: melody, chords, bass or all three; 8 scales, 24 progressions + AUTO, 13 melody characters; 1000 variations per seed on the ALGORITHM dial |
 | **Arpeggiator** | 7 orders, 1/4 … 1/32, 1–3 octaves, gate, swing, latch |
 | **DAW control** | Mixer knobs, play / stop / record, FX, master, tap tempo; BPM and transport sync both ways |
-| **MIDI** | Notes on channel 1 (generator can split to channels 1/2/3), controls on channel 16, MIDI Clock in |
+| **MIDI** | USB and Bluetooth LE MIDI at the same time (plus TRS in); notes on channel 1 (generator can split to 1/2/3), controls on channel 16; MIDI Clock in or out |
 
 ## Install
 
@@ -72,6 +73,27 @@ Live *MIDI Map*).
 bass on 3. In FL give three channels MIDI input channels 1, 2, 3; in Live make three MIDI tracks with input NOCT
 FM-1 and Ch. 1, Ch. 2, Ch. 3. The keyboard always plays on channel 1.
 
+## Bluetooth and apps (Android, Koala Sampler)
+
+The firmware sends and receives MIDI on **USB and Bluetooth at the same time**. Bluetooth starts at power-on and
+advertises as **"FM-1"**; switch it on or off on the **LINK** page (K1) and SAVE to keep the choice.
+
+**On the FM-1 (LINK page)** for apps without the DAW scripts:
+
+1. K2 **HOST → APPS**: PLAY sends MIDI Start / Stop instead of the script controls.
+2. K3 **CLOCK OUT → SEND**: the FM-1 becomes the tempo master and sends MIDI Clock (it then ignores incoming clock
+   and Start, but always obeys an incoming Stop).
+3. K4 **KNOB CH → CH 1** if the app learns controllers on the notes' channel.
+
+**Android over USB:** connect with a USB-C / OTG adapter; in the app's MIDI settings enable the FM-1 input (and the
+output for clock and lights). **Android over Bluetooth:** do *not* pair in the system Bluetooth settings — a
+Bluetooth MIDI device must be opened by a MIDI app. Use the app's own Bluetooth MIDI search if it has one; if not,
+connect once with a Bluetooth MIDI connector app, after which the FM-1 shows up in every MIDI app. In Koala
+Sampler, turn on its MIDI input for the FM-1 and, with CLOCK OUT on, its external MIDI clock sync.
+
+Bluetooth MIDI has more latency than USB; for tight timing prefer USB. Android and Koala behaviour depends on the
+phone and app version and has not been tested on hardware by this project.
+
 ## Controls
 
 The screen shows a page; the four knobs edit what that page shows. **PRESET** flips pages, **HOME** returns the
@@ -86,6 +108,7 @@ knobs to the DAW. Nothing on a settings page sends CC.
 | **STYLE** | Chords: hold, pulse, offbeat, broken | Colour: triads, 7ths, add9, sus2, mixed | Range 1–3 oct | Melody character (AUTO + 13) |
 | **ARP** | Rate | Order (7) | Octaves | Gate |
 | **SYNC** | Clock: auto, internal, external | BPM | Velocity; below 1 = sensed | Generator out: ch 1 / split |
+| **LINK** | Bluetooth on / off | Host: DAW / apps | Clock out | Knob channel: 16 / 1 |
 
 | Button | Action |
 | --- | --- |
@@ -101,7 +124,7 @@ knobs to the DAW. Nothing on a settings page sends CC.
 | **SEQ + EDIT** | Undo, up to 8 steps |
 | **ARP** | Arpeggiator on / off (always off after power-on) |
 | **ARP + ENV** | Latch |
-| **GLO** | SYNC page; on the SYNC page: tap tempo |
+| **GLO** | SYNC page (PRESET → LINK); on the SYNC page: tap tempo |
 | **PLAY / REC** | DAW transport; PLAY also stops a local generator preview |
 | **FX** | FX of the selected FL mixer track / Live device on |
 | **ENV** | Sustain while held |
@@ -146,6 +169,9 @@ For the widest variety: COMPOSE K4 → AUTO, STYLE K2 → MIXED, STYLE K4 → AU
 
 - The bootloader, USB, OTA and flash code from fm1-base are **not modified**; NOCT is an application on top.
 - Flash is written only when you press SAVE. Unknown or invalid settings fall back to defaults.
+- Bluetooth uses fm1-base's own radio code unchanged; if a Bluetooth start ever crashes, fm1-base keeps
+  Bluetooth off at the next boot, and two crashes while starting bring up a safe mode. A USB-only image is built
+  too (CI artifact `noct-usb-only`) as a fallback.
 - Every release is built in CI with the device image checks (RAM, interrupt-safe code, register access) and
   the site publishes only a build that passed them.
 - **If the FM-1 does not start:** hold OCT− and OCT+ for 5 seconds for update mode and restore the stock firmware
@@ -163,7 +189,8 @@ for t in tests/test_*.py; do python3 "$t"; done  # scenario tests on the real C 
 firmware/app/build/host/noct-usb_host tests/noct.ctl test-output
 node tests/installer.test.mjs
 python tools/emulator.py --port 8766            # interactive emulator at http://127.0.0.1:8766/
-sh build.sh --no-ble --release 0.9.2            # device image (needs the JieLi pi32v2 toolchain and AC79 SDK)
+sh build.sh --release 0.9.3                     # device image, USB + Bluetooth (JieLi pi32v2 toolchain, AC79 SDK)
+sh build.sh --no-ble --release 0.9.3            # USB-only image
 ```
 
 - Firmware: [`firmware/app`](firmware/app) — `composer.c` (generator), `midi_engine.c` (clock, arp),
@@ -172,6 +199,7 @@ sh build.sh --no-ble --release 0.9.2            # device image (needs the JieLi 
 - Site and installer: [`site/`](site) (English and Russian). DAW scripts: [`integrations/`](integrations).
 - Improving the firmware: [`docs/IMPROVE_PROMPT.md`](docs/IMPROVE_PROMPT.md) — no-brick rules, an audit checklist
   and a definition of done.
+- Hardware facts and their sources: [`docs/HARDWARE_FACTS.md`](docs/HARDWARE_FACTS.md).
 - MIDI protocol on channel 16: CC7 master; CC20–23 knobs (CC24–27 in MIDI map); CC110/111/112 play/stop/record;
   CC113 FX; CC114 + CC115 BPM×10 (14-bit, always as a pair); CC116/117 playing/recording feedback; CC119 value 2
   preset handshake.
